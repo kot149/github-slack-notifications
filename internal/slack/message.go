@@ -29,25 +29,33 @@ func format(e event.Event) string {
 	return strings.Join(lines, "\n")
 }
 
+// Message is one Slack post and the notifications it covers.
+type Message struct {
+	Text      string
+	SourceIDs []string
+}
+
 // Messages renders events into Slack messages: one per event, or rolled up and split to fit maxMessageLen.
-func Messages(events []event.Event, rollup bool) []string {
-	var msgs []string
-	var cur string
+func Messages(events []event.Event, rollup bool) []Message {
+	var msgs []Message
+	var cur Message
 	for _, e := range events {
 		s := format(e)
 		switch {
 		case !rollup:
-			msgs = append(msgs, s)
-		case cur == "":
-			cur = s
-		case len(cur)+1+len(s) > maxMessageLen:
+			msgs = append(msgs, Message{Text: s, SourceIDs: e.SourceIDs})
+			continue
+		case cur.Text == "":
+			cur.Text = s
+		case len(cur.Text)+1+len(s) > maxMessageLen:
 			msgs = append(msgs, cur)
-			cur = s
+			cur = Message{Text: s}
 		default:
-			cur += "\n" + s
+			cur.Text += "\n" + s
 		}
+		cur.SourceIDs = append(cur.SourceIDs, e.SourceIDs...)
 	}
-	if cur != "" {
+	if cur.Text != "" {
 		msgs = append(msgs, cur)
 	}
 	return msgs

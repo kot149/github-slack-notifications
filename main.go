@@ -29,6 +29,11 @@ func main() {
 	defer stop()
 
 	f := forwarder.New(cfg, *dryRun, *lookback)
+	if !*dryRun {
+		if err := f.CheckState(); err != nil {
+			log.Fatal(err)
+		}
+	}
 	if *once || *dryRun {
 		if _, err := f.Run(ctx); err != nil {
 			log.Fatal(err)

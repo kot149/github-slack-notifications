@@ -25,6 +25,8 @@ type fakeAPI struct {
 	notifications []map[string]any
 	posts         []string
 	marked        []string
+	// failPostAt makes the n-th Slack post (1-based) fail with a server error.
+	failPostAt int
 	// notModified answers 304 to requests carrying If-Modified-Since.
 	notModified bool
 }
@@ -80,6 +82,12 @@ func (a *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/slack":
 		var body struct{ Text string }
 		json.NewDecoder(r.Body).Decode(&body)
+		if a.failPostAt > 0 && len(a.posts)+1 == a.failPostAt {
+			a.failPostAt = 0
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"ok":false,"error":"internal_error"}`))
+			return
+		}
 		a.posts = append(a.posts, body.Text)
 		w.Write([]byte(`{"ok":true}`))
 	default:
@@ -137,5 +145,36 @@ func TestRunNotModified(t *testing.T) {
 	}
 	if len(a.posts) != 1 {
 		t.Errorf("a 304 response should not post, got %d posts", len(a.posts))
+	}
+}
+
+func TestRunDoesNotResendAfterPartialFailure(t *testing.T) {
+	a := newFakeAPI(t)
+	a.addPR(1, time.Now().Add(-2*time.Minute))
+	a.addPR(2, time.Now().Add(-time.Minute))
+	a.failPostAt = 2
+	a.notModified = true
+	f := newTestForwarder(t, a, false)
+
+	if _, err := f.Run(context.Background()); err == nil {
+		t.Fatal("want error from the failed post")
+	}
+	if _, err := f.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.posts) != 2 || !strings.Contains(a.posts[0], "PR 1") || !strings.Contains(a.posts[1], "PR 2") {
+		t.Errorf("posts = %q, want PR 1 then PR 2 once each", a.posts)
+	}
+	if len(a.marked) != 2 {
+		t.Errorf("marked = %q, want both", a.marked)
+	}
+}
+
+func TestCheckStateFailsOnUnwritableStateFile(t *testing.T) {
+	a := newFakeAPI(t)
+	f := newTestForwarder(t, a, true)
+	f.cfg.StateFile = filepath.Join(t.TempDir(), "missing-dir", "state.json")
+	if err := f.CheckState(); err == nil {
+		t.Error("want error for a state file that can't be written")
 	}
 }

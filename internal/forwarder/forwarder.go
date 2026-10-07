@@ -32,7 +32,7 @@ type Forwarder struct {
 }
 
 // New creates a Forwarder. With dryRun, messages are printed instead of posted and nothing is changed.
-// A positive lookback fetches notifications updated within it instead of since the last run.
+// A positive lookback makes the first successful run fetch notifications updated within it instead of since the last run.
 func New(cfg *config.Config, dryRun bool, lookback time.Duration) *Forwarder {
 	return &Forwarder{
 		cfg:      cfg,
@@ -128,7 +128,12 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 	}
 
 	st = state.State{Since: res.ServerTime, LastModified: res.LastModified, Seen: seen}
-	return res.PollInterval, state.Save(f.cfg.StateFile, st)
+	if err := state.Save(f.cfg.StateFile, st); err != nil {
+		return retryWait, err
+	}
+	// Later polls continue from the saved state so they can get 304 instead of refetching the whole window.
+	f.lookback = 0
+	return res.PollInterval, nil
 }
 
 func (f *Forwarder) markAsRead(ctx context.Context, ids []string) {

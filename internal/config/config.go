@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"go.yaml.in/yaml/v3"
@@ -39,7 +40,26 @@ type Slack struct {
 	IconEmoji string `yaml:"icon_emoji"`
 }
 
-// Load reads the config file at path and the tokens from the environment or .env.local.
+// DefaultPath returns ./config.yml if it exists, otherwise
+// $XDG_CONFIG_HOME/github-slack-notifications/config.yml (~/.config when unset).
+func DefaultPath() string {
+	if _, err := os.Stat("config.yml"); err == nil {
+		return "config.yml"
+	}
+	dir := os.Getenv("XDG_CONFIG_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "config.yml"
+		}
+		dir = filepath.Join(home, ".config")
+	}
+	return filepath.Join(dir, "github-slack-notifications", "config.yml")
+}
+
+// Load reads the config file at path and the tokens from the environment or
+// .env.local. .env.local and a relative state_file are resolved against the
+// config file's directory.
 func Load(path string) (*Config, error) {
 	cfg := &Config{MarkAsRead: true, SortOldestFirst: true, Rollup: true, StateFile: "state.json"}
 	cfg.Filter.OnlyUnread = true
@@ -54,7 +74,11 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 
-	if err := loadDotEnv(".env.local"); err != nil {
+	dir := filepath.Dir(path)
+	if !filepath.IsAbs(cfg.StateFile) {
+		cfg.StateFile = filepath.Join(dir, cfg.StateFile)
+	}
+	if err := loadDotEnv(filepath.Join(dir, ".env.local")); err != nil {
 		return nil, err
 	}
 	cfg.GitHubToken = os.Getenv("GITHUB_TOKEN")

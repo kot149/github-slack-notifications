@@ -10,15 +10,15 @@ import (
 	"time"
 )
 
-const githubAPI = "https://api.github.com"
-
 type Client struct {
-	token string
-	http  *http.Client
+	// BaseURL is the REST API root, without a trailing slash.
+	BaseURL string
+	token   string
+	http    *http.Client
 }
 
 func New(token string) *Client {
-	return &Client{token: token, http: &http.Client{Timeout: 30 * time.Second}}
+	return &Client{BaseURL: "https://api.github.com", token: token, http: &http.Client{Timeout: 30 * time.Second}}
 }
 
 func (g *Client) do(ctx context.Context, method, rawURL string, header http.Header, out any) (*http.Response, error) {

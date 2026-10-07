@@ -29,7 +29,7 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 			SHA string `json:"sha"`
 		} `json:"head"`
 	}
-	q := fmt.Sprintf("%s/repos/%s/pulls?state=all&per_page=1&head=%s:%s", githubAPI, repo, owner, branch)
+	q := fmt.Sprintf("%s/repos/%s/pulls?state=all&per_page=1&head=%s:%s", g.BaseURL, repo, owner, branch)
 	if err := g.get(ctx, q, &pulls); err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 			Conclusion string `json:"conclusion"`
 		} `json:"check_runs"`
 	}
-	if err := g.get(ctx, fmt.Sprintf("%s/repos/%s/commits/%s/check-runs?per_page=100", githubAPI, repo, pr.Head.SHA), &runs); err != nil {
+	if err := g.get(ctx, fmt.Sprintf("%s/repos/%s/commits/%s/check-runs?per_page=100", g.BaseURL, repo, pr.Head.SHA), &runs); err != nil {
 		return err
 	}
 	var total, pending int

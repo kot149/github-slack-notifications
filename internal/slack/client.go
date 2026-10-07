@@ -19,13 +19,15 @@ type Options struct {
 }
 
 type Client struct {
+	// URL is the chat.postMessage endpoint.
+	URL   string
 	token string
 	opts  Options
 	http  *http.Client
 }
 
 func New(token string, opts Options) *Client {
-	return &Client{token: token, opts: opts, http: &http.Client{Timeout: 30 * time.Second}}
+	return &Client{URL: "https://slack.com/api/chat.postMessage", token: token, opts: opts, http: &http.Client{Timeout: 30 * time.Second}}
 }
 
 func (c *Client) Post(ctx context.Context, text string) error {
@@ -49,7 +51,7 @@ func (c *Client) Post(ctx context.Context, text string) error {
 	}
 
 	for attempt := 0; ; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://slack.com/api/chat.postMessage", bytes.NewReader(body))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL, bytes.NewReader(body))
 		if err != nil {
 			return err
 		}

@@ -42,7 +42,7 @@ func TestClassify(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, got := classify(notif(tt.reason), tt.facts); got != tt.want {
+			if _, got, _ := classify(notif(tt.reason), tt.facts); got != tt.want {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
@@ -53,11 +53,11 @@ func TestClassifyUsesLastReadAt(t *testing.T) {
 	n := notif("comment")
 	n.LastReadAt = ptr(base.Add(-90 * time.Second))
 	merged := threadFacts{IsPR: true, CreatedAt: base.Add(-time.Hour), MergedAt: ptr(base.Add(-2 * time.Minute))}
-	if _, got := classify(n, merged); got != "" {
+	if _, got, _ := classify(n, merged); got != "" {
 		t.Errorf("merge read before should not be reported again, got %q", got)
 	}
 	n.LastReadAt = ptr(base.Add(-10 * time.Minute))
-	if _, got := classify(n, merged); got != "Merged PR" {
+	if _, got, _ := classify(n, merged); got != "Merged PR" {
 		t.Errorf("merge after last read: got %q", got)
 	}
 }
@@ -66,7 +66,29 @@ func TestClassifyIgnoresReadAfterUpdate(t *testing.T) {
 	n := notif("comment")
 	n.LastReadAt = ptr(base.Add(time.Minute))
 	f := threadFacts{IsPR: true, CreatedAt: base.Add(-time.Hour), Comment: &activity{Author: "dave", At: base}}
-	if _, got := classify(n, f); got != "New comment by dave" {
+	if _, got, _ := classify(n, f); got != "New comment by dave" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestClassifyLinksToActivity(t *testing.T) {
+	old := base.Add(-time.Hour)
+	comment := &activity{Author: "dave", At: base, URL: "https://github.com/o/r/pull/1#issuecomment-1"}
+	review := &activity{Author: "alice", At: base, State: "APPROVED", URL: "https://github.com/o/r/pull/1#pullrequestreview-2"}
+	tests := []struct {
+		name  string
+		facts threadFacts
+		want  string
+	}{
+		{"comment", threadFacts{IsPR: true, CreatedAt: old, Comment: comment}, comment.URL},
+		{"review", threadFacts{IsPR: true, CreatedAt: old, Review: review}, review.URL},
+		{"merge", threadFacts{IsPR: true, CreatedAt: old, MergedAt: ptr(base)}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, _, got := classify(notif("author"), tt.facts); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

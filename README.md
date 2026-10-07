@@ -15,9 +15,11 @@ A long-running program that filters your GitHub notifications and forwards them 
 Each notification takes two lines. With `rollup: true`, all notifications found in one poll are combined into a single message.
 
 ```
-*:white_check_mark: Approved by alice*      ← links to the PR
-owner/repo #123 PR title
+*:white_check_mark: Approved by alice*      ← links to the review
+owner/repo #123 PR title                    ← links to the PR
 ```
+
+The first line links to the comment or review for comment and review events, and to the PR or issue otherwise.
 
 | Kind | Shown as |
 |---|---|

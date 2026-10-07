@@ -6,6 +6,7 @@ import "time"
 type activity struct {
 	Author string
 	At     time.Time
+	URL    string // github.com page of the comment or review
 	State  string // review state; empty for comments
 	Inline bool   // review comment on a diff line
 }
@@ -37,44 +38,44 @@ func isNew(n Notification, t time.Time) bool {
 	return t.After(n.UpdatedAt.Add(-eventWindow))
 }
 
-// classify picks the emoji and label that describe why a PR or issue notification was updated.
-// An empty label means the update isn't worth forwarding.
-func classify(n Notification, f threadFacts) (emoji, label string) {
+// classify picks the emoji and label that describe why a PR or issue notification was updated,
+// and the page of the comment or review behind it, if any. An empty label means the update isn't worth forwarding.
+func classify(n Notification, f threadFacts) (emoji, label, url string) {
 	noun := "issue"
 	if f.IsPR {
 		noun = "PR"
 	}
 
 	type candidate struct {
-		at           time.Time
-		emoji, label string
+		at                time.Time
+		emoji, label, url string
 	}
 	// Listed by priority, used when several activities happened at the same moment.
 	var cands []candidate
-	add := func(at *time.Time, emoji, label string) {
+	add := func(at *time.Time, emoji, label, url string) {
 		if at != nil && isNew(n, *at) {
-			cands = append(cands, candidate{*at, emoji, label})
+			cands = append(cands, candidate{*at, emoji, label, url})
 		}
 	}
-	add(f.MergedAt, ":twisted_rightwards_arrows:", "Merged PR")
-	add(f.ClosedAt, ":no_entry_sign:", "Closed "+noun)
+	add(f.MergedAt, ":twisted_rightwards_arrows:", "Merged PR", "")
+	add(f.ClosedAt, ":no_entry_sign:", "Closed "+noun, "")
 	if r := f.Review; r != nil {
 		switch r.State {
 		case "APPROVED":
-			add(&r.At, ":white_check_mark:", "Approved by "+r.Author)
+			add(&r.At, ":white_check_mark:", "Approved by "+r.Author, r.URL)
 		case "CHANGES_REQUESTED":
-			add(&r.At, ":warning:", "Changes requested by "+r.Author)
+			add(&r.At, ":warning:", "Changes requested by "+r.Author, r.URL)
 		}
 	}
 	if c := f.Comment; c != nil {
 		if c.Inline {
-			add(&c.At, ":speech_balloon:", "New review comment by "+c.Author)
+			add(&c.At, ":speech_balloon:", "New review comment by "+c.Author, c.URL)
 		} else {
-			add(&c.At, ":speech_balloon:", "New comment by "+c.Author)
+			add(&c.At, ":speech_balloon:", "New comment by "+c.Author, c.URL)
 		}
 	}
 	if r := f.Review; r != nil && r.State != "APPROVED" && r.State != "CHANGES_REQUESTED" {
-		add(&r.At, ":speech_balloon:", "New review comment by "+r.Author)
+		add(&r.At, ":speech_balloon:", "New review comment by "+r.Author, r.URL)
 	}
 
 	if len(cands) > 0 {
@@ -86,25 +87,25 @@ func classify(n Notification, f threadFacts) (emoji, label string) {
 		}
 		for _, c := range cands {
 			if !c.at.Before(latest.Add(-sameMoment)) {
-				return c.emoji, c.label
+				return c.emoji, c.label, c.url
 			}
 		}
 	}
 
 	switch n.Reason {
 	case "review_requested":
-		return ":eyes:", "Review requested"
+		return ":eyes:", "Review requested", ""
 	case "assign":
-		return ":point_right:", "Assigned to " + noun
+		return ":point_right:", "Assigned to " + noun, ""
 	case "mention", "team_mention":
-		return ":mega:", "Mentioned in " + noun
+		return ":mega:", "Mentioned in " + noun, ""
 	}
 	if f.MergedAt != nil || f.ClosedAt != nil {
 		// e.g. the head branch was deleted after the merge that was already forwarded
-		return "", ""
+		return "", "", ""
 	}
 	if isNew(n, f.CreatedAt) {
-		return ":sparkles:", "Opened " + noun
+		return ":sparkles:", "Opened " + noun, ""
 	}
-	return ":arrows_counterclockwise:", "Updated " + noun
+	return ":arrows_counterclockwise:", "Updated " + noun, ""
 }

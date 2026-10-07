@@ -37,7 +37,26 @@ The first line links to the comment or review for comment and review events, and
 
 ## Setup
 
-1. Put the following in `.env.local` (environment variables work too)
+1. Install
+
+   ```sh
+   go install github.com/kot149/github-slack-notifications@latest
+   ```
+
+   Or clone this repository and run `go build -o github-slack-notifications .`
+
+2. Create the config directory and copy [config.yml](config.yml) into it, then configure filters and other options
+
+   ```sh
+   mkdir -p ~/.config/github-slack-notifications
+   curl -fsSL -o ~/.config/github-slack-notifications/config.yml \
+     https://raw.githubusercontent.com/kot149/github-slack-notifications/main/config.yml
+   ```
+
+   - The config file is `./config.yml` if it exists, otherwise `$XDG_CONFIG_HOME/github-slack-notifications/config.yml` (`~/.config` when unset). `-config` overrides it
+   - `.env.local` and a relative `state_file` are read from the config file's directory
+
+3. Put the following in `.env.local` next to the config file (environment variables work too)
    - `GITHUB_TOKEN`: a classic PAT with the `notifications` scope, authorized for your org's SSO
    - `SLACK_TOKEN`: a token for a bot invited to the target channel. Changing `username` and the icon requires the `chat:write.customize` scope
    - `SLACK_CHANNEL`: the target channel ID or user ID (can also be set as `slack.channel` in `config.yml`)
@@ -48,19 +67,13 @@ The first line links to the comment or review for comment and review events, and
    SLACK_CHANNEL=C0123456789
    ```
 
-2. Configure filters and other options in [config.yml](config.yml)
-3. Build
-
-   ```sh
-   go build -o github-slack-notifications .
-   ```
-
 ## Usage
 
 ```sh
-./github-slack-notifications                         # keep running and poll
-./github-slack-notifications -once                   # check once and exit
-./github-slack-notifications -dry-run -lookback 24h  # only print messages for the last 24 hours (no posting, marking as read, or saving state)
+github-slack-notifications                         # keep running and poll
+github-slack-notifications -once                   # check once and exit
+github-slack-notifications -dry-run -lookback 24h  # only print messages for the last 24 hours (no posting, marking as read, or saving state)
+github-slack-notifications -config path/to/config.yml
 ```
 
 ### Running with launchd
@@ -76,16 +89,14 @@ The first line links to the comment or review for comment and review events, and
     <string>local.github-slack-notifications</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/path/to/github-slack-notifications/github-slack-notifications</string>
+        <string>/Users/you/go/bin/github-slack-notifications</string>
     </array>
-    <key>WorkingDirectory</key>
-    <string>/path/to/github-slack-notifications</string>
     <key>KeepAlive</key>
     <true/>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardErrorPath</key>
-    <string>/path/to/github-slack-notifications/forwarder.log</string>
+    <string>/Users/you/.config/github-slack-notifications/forwarder.log</string>
 </dict>
 </plist>
 ```

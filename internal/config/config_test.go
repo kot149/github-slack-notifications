@@ -66,7 +66,54 @@ func TestLoadAcceptsEmptyFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.MarkAsRead || cfg.StateFile != "state.json" {
+	if !cfg.MarkAsRead || filepath.Base(cfg.StateFile) != "state.json" {
 		t.Errorf("defaults not applied: %+v", cfg)
+	}
+}
+
+func TestLoadResolvesFilesNextToConfig(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	os.Unsetenv("GITHUB_TOKEN")
+	t.Setenv("SLACK_TOKEN", "sl")
+	t.Setenv("SLACK_CHANNEL", "C1")
+	path := writeConfig(t, "")
+	dir := filepath.Dir(path)
+	if err := os.WriteFile(filepath.Join(dir, ".env.local"), []byte("GITHUB_TOKEN=from-file\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GitHubToken != "from-file" {
+		t.Errorf("GitHubToken = %q, want token from .env.local next to the config", cfg.GitHubToken)
+	}
+	if want := filepath.Join(dir, "state.json"); cfg.StateFile != want {
+		t.Errorf("StateFile = %q, want %q", cfg.StateFile, want)
+	}
+
+	abs := filepath.Join(t.TempDir(), "s.json")
+	cfg, err = Load(writeConfig(t, "state_file: "+abs+"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.StateFile != abs {
+		t.Errorf("StateFile = %q, want absolute path kept as %q", cfg.StateFile, abs)
+	}
+}
+
+func TestDefaultPath(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", "/xdg")
+	if got, want := DefaultPath(), filepath.Join("/xdg", "github-slack-notifications", "config.yml"); got != want {
+		t.Errorf("DefaultPath() = %q, want %q", got, want)
+	}
+
+	if err := os.WriteFile("config.yml", nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := DefaultPath(); got != "config.yml" {
+		t.Errorf("DefaultPath() = %q, want config.yml in the working directory", got)
 	}
 }

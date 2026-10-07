@@ -85,31 +85,71 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 	if f.dryRun {
 		log.Printf("dry run: %d fetched since %s, %d after filters", len(res.Notifications), since.Format(time.RFC3339), len(targets))
 		for _, msg := range slack.Messages(f.buildEvents(ctx, targets), f.cfg.Rollup) {
-			os.Stdout.WriteString(msg + "\n\n")
+			os.Stdout.WriteString(msg.Text + "\n\n")
 		}
 		return 0, nil
 	}
 
 	if len(targets) > 0 {
-		events := f.buildEvents(ctx, targets)
-		for _, msg := range slack.Messages(events, f.cfg.Rollup) {
-			if err := f.slack.Post(ctx, msg); err != nil {
+		updatedAt := map[string]time.Time{}
+		for _, n := range targets {
+			updatedAt[n.ID] = n.UpdatedAt
+		}
+		if st.Seen == nil {
+			st.Seen = map[string]time.Time{}
+		}
+		posted := map[string]bool{}
+		// A retry must refetch the unposted rest instead of getting 304 for an inbox that hasn't changed.
+		st.LastModified = ""
+		for _, msg := range slack.Messages(f.buildEvents(ctx, targets), f.cfg.Rollup) {
+			if err := f.slack.Post(ctx, msg.Text); err != nil {
 				return retryWait, err
 			}
+			// Record each post so that a failure later in this run doesn't resend it on retry.
+			for _, id := range msg.SourceIDs {
+				st.Seen[id] = updatedAt[id]
+				posted[id] = true
+			}
+			if err := state.Save(f.cfg.StateFile, st); err != nil {
+				return retryWait, err
+			}
+			f.markAsRead(ctx, msg.SourceIDs)
 		}
 		log.Printf("forwarded %d notifications", len(targets))
 
-		if f.cfg.MarkAsRead {
-			for _, n := range targets {
-				if err := f.gh.MarkAsRead(ctx, n.ID); err != nil {
-					log.Printf("mark %s as read: %v", n.ID, err)
-				}
+		// Notifications that produced no event, e.g. updates after an already forwarded merge.
+		var dropped []string
+		for _, n := range targets {
+			if !posted[n.ID] {
+				dropped = append(dropped, n.ID)
 			}
 		}
+		f.markAsRead(ctx, dropped)
 	}
 
 	st = state.State{Since: res.ServerTime, LastModified: res.LastModified, Seen: seen}
 	return res.PollInterval, state.Save(f.cfg.StateFile, st)
+}
+
+func (f *Forwarder) markAsRead(ctx context.Context, ids []string) {
+	if !f.cfg.MarkAsRead {
+		return
+	}
+	for _, id := range ids {
+		if err := f.gh.MarkAsRead(ctx, id); err != nil {
+			log.Printf("mark %s as read: %v", id, err)
+		}
+	}
+}
+
+// CheckState fails if the state file can't be read and written, which would otherwise make every
+// poll resend the same notifications.
+func (f *Forwarder) CheckState() error {
+	st, err := state.Load(f.cfg.StateFile)
+	if err != nil {
+		return err
+	}
+	return state.Save(f.cfg.StateFile, st)
 }
 
 func (f *Forwarder) keep(n github.Notification) bool {
@@ -148,12 +188,14 @@ func (f *Forwarder) buildEvents(ctx context.Context, ns []github.Notification) [
 		if e.Label == "" {
 			continue
 		}
+		e.SourceIDs = []string{n.ID}
 		if e.GroupKey == "" {
 			events = append(events, e)
 			continue
 		}
 		// Keep the group at its latest position, since its checks reflect the newest run.
 		if i, ok := index[e.GroupKey]; ok && f.cfg.SortOldestFirst {
+			e.SourceIDs = append(events[i].SourceIDs, e.SourceIDs...)
 			events = slices.Delete(events, i, i+1)
 			for k, v := range index {
 				if v > i {
@@ -161,6 +203,7 @@ func (f *Forwarder) buildEvents(ctx context.Context, ns []github.Notification) [
 				}
 			}
 		} else if ok {
+			events[i].SourceIDs = append(events[i].SourceIDs, e.SourceIDs...)
 			continue
 		}
 		index[e.GroupKey] = len(events)

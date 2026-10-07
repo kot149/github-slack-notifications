@@ -1,6 +1,7 @@
 package slack
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -24,8 +25,14 @@ func TestFormatEvent(t *testing.T) {
 
 func TestMessagesSplitsLongRollups(t *testing.T) {
 	e := event.Event{Label: strings.Repeat("x", 1500)}
-	if got := len(Messages([]event.Event{e, e, e}, true)); got != 2 {
-		t.Errorf("rollup: got %d messages, want 2", got)
+	a, b, c := e, e, e
+	a.SourceIDs, b.SourceIDs, c.SourceIDs = []string{"1"}, []string{"2"}, []string{"3"}
+	got := Messages([]event.Event{a, b, c}, true)
+	if len(got) != 2 {
+		t.Fatalf("rollup: got %d messages, want 2", len(got))
+	}
+	if !slices.Equal(got[0].SourceIDs, []string{"1", "2"}) || !slices.Equal(got[1].SourceIDs, []string{"3"}) {
+		t.Errorf("rollup source IDs: %v, %v", got[0].SourceIDs, got[1].SourceIDs)
 	}
 	if got := len(Messages([]event.Event{e, e, e}, false)); got != 3 {
 		t.Errorf("no rollup: got %d messages, want 3", got)

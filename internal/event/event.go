@@ -15,4 +15,7 @@ type Event struct {
 
 	// GroupKey merges events that describe the same thing, e.g. several CI runs on one PR.
 	GroupKey string
+
+	// SourceIDs identifies the notifications this event was built from.
+	SourceIDs []string
 }

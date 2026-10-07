@@ -37,6 +37,29 @@ func TestLoadBundledConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDotEnv(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env.local")
+	body := "# comment\n\nexport DOTENV_A=\"quoted\"\nDOTENV_B = 'single'\nDOTENV_C=keep\nnot a pair\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("DOTENV_C", "from env")
+	for _, k := range []string{"DOTENV_A", "DOTENV_B"} {
+		t.Setenv(k, "")
+		os.Unsetenv(k)
+	}
+
+	if err := loadDotEnv(path); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"DOTENV_A": "quoted", "DOTENV_B": "single", "DOTENV_C": "from env"}
+	for k, v := range want {
+		if got := os.Getenv(k); got != v {
+			t.Errorf("%s = %q, want %q", k, got, v)
+		}
+	}
+}
+
 func TestLoadAcceptsEmptyFile(t *testing.T) {
 	setTokens(t)
 	cfg, err := Load(writeConfig(t, ""))

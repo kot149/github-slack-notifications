@@ -1,0 +1,23 @@
+# Tokens come from GITHUB_TOKEN and SLACK_TOKEN (environment or .env.local).
+# SLACK_CHANNEL there overrides slack.channel.
+
+filter:
+  # https://docs.github.com/en/rest/activity/notifications#about-notification-reasons
+  include_reasons: [assign, author, comment, mention, review_requested, team_mention, state_change, ci_activity]
+  exclude_reasons: []
+  include_repositories: [] # owner/repo; empty means all
+  exclude_repositories: []
+  only_participating: true
+  only_unread: false
+
+mark_as_read: true
+sort_oldest_first: true
+rollup: true # one Slack message per check instead of one per notification
+state_file: state.json
+
+slack:
+  channel: "" # channel or user ID
+  # username and icon require the chat:write.customize scope
+  username: GitHub
+  icon_url: https://avatars.githubusercontent.com/u/9919?s=460&v=4
+  icon_emoji: ""

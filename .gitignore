@@ -1,0 +1,4 @@
+/github-slack-notifications
+.env.local
+state.json
+*.log

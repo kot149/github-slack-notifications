@@ -2,6 +2,7 @@ package forwarder
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"slices"
@@ -21,6 +22,9 @@ const (
 	overlap = 5 * time.Minute
 	// firstLookback is how far back the very first run looks.
 	firstLookback = 15 * time.Minute
+	// alertAfter is how long fetching from GitHub must keep failing before it is reported to Slack,
+	// e.g. when the token expired or lost its SSO authorization.
+	alertAfter = 15 * time.Minute
 )
 
 type Forwarder struct {
@@ -29,6 +33,10 @@ type Forwarder struct {
 	slack    *slack.Client
 	dryRun   bool
 	lookback time.Duration
+
+	// failingSince is when the current run of failed fetches began; zero while fetches succeed.
+	failingSince time.Time
+	alerted      bool
 }
 
 // New creates a Forwarder. With dryRun, messages are printed instead of posted and nothing is changed.
@@ -63,6 +71,7 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 	}
 
 	res, err := f.gh.FetchNotifications(ctx, since, lastModified, f.cfg.Filter.OnlyParticipating, !f.cfg.Filter.OnlyUnread)
+	f.reportFetch(ctx, err)
 	if err != nil {
 		return retryWait, err
 	}
@@ -134,6 +143,36 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 	// Later polls continue from the saved state so they can get 304 instead of refetching the whole window.
 	f.lookback = 0
 	return res.PollInterval, nil
+}
+
+// reportFetch posts to Slack once fetching has failed for alertAfter, and again when it recovers,
+// since a daemon that only logs the failure would stop forwarding unnoticed.
+func (f *Forwarder) reportFetch(ctx context.Context, err error) {
+	if f.dryRun {
+		return
+	}
+	if err == nil {
+		if f.alerted {
+			f.alert(ctx, ":large_green_circle: Fetching GitHub notifications works again")
+		}
+		f.failingSince, f.alerted = time.Time{}, false
+		return
+	}
+	if f.failingSince.IsZero() {
+		f.failingSince = time.Now()
+	}
+	if !f.alerted && time.Since(f.failingSince) >= alertAfter {
+		f.alerted = f.alert(ctx, fmt.Sprintf(":warning: Fetching GitHub notifications has failed since %s\n%s",
+			f.failingSince.Format(time.DateTime), slack.Escape(err.Error())))
+	}
+}
+
+func (f *Forwarder) alert(ctx context.Context, text string) bool {
+	if err := f.slack.Post(ctx, text); err != nil {
+		log.Printf("post alert: %v", err)
+		return false
+	}
+	return true
 }
 
 func (f *Forwarder) markAsRead(ctx context.Context, ids []string) {

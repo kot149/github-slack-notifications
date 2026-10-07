@@ -9,6 +9,7 @@ A long-running program that filters your GitHub notifications and forwards them 
 - Filters notifications updated since the last fetch by reason and repository, then posts them to Slack
 - Marks forwarded notifications as read (`mark_as_read`)
 - Keeps its state (last fetch time, handled notifications) in `state_file`
+- If fetching from GitHub keeps failing for 15 minutes (e.g. the token expired), posts a warning to the same channel, and a follow-up once it recovers
 
 ### Messages
 

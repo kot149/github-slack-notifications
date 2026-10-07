@@ -29,6 +29,8 @@ type fakeAPI struct {
 	failPostAt int
 	// notModified answers 304 to requests carrying If-Modified-Since.
 	notModified bool
+	// failFetch answers 401 to notification fetches.
+	failFetch bool
 }
 
 func newFakeAPI(t *testing.T) *fakeAPI {
@@ -61,6 +63,11 @@ func (a *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case r.URL.Path == "/notifications":
+		if a.failFetch {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"message":"Bad credentials"}`))
+			return
+		}
 		if a.notModified && r.Header.Get("If-Modified-Since") != "" {
 			w.WriteHeader(http.StatusNotModified)
 			return
@@ -176,6 +183,35 @@ func TestCheckStateFailsOnUnwritableStateFile(t *testing.T) {
 	f.cfg.StateFile = filepath.Join(t.TempDir(), "missing-dir", "state.json")
 	if err := f.CheckState(); err == nil {
 		t.Error("want error for a state file that can't be written")
+	}
+}
+
+func TestRunAlertsOnceOnPersistentFetchFailure(t *testing.T) {
+	a := newFakeAPI(t)
+	a.failFetch = true
+	f := newTestForwarder(t, a, true)
+
+	if _, err := f.Run(context.Background()); err == nil {
+		t.Fatal("want error from the failed fetch")
+	}
+	if len(a.posts) != 0 {
+		t.Fatalf("a single failure should not alert, got %q", a.posts)
+	}
+
+	f.failingSince = time.Now().Add(-alertAfter)
+	for range 2 {
+		f.Run(context.Background())
+	}
+	if len(a.posts) != 1 || !strings.Contains(a.posts[0], "Bad credentials") {
+		t.Fatalf("posts = %q, want one alert with the error", a.posts)
+	}
+
+	a.failFetch = false
+	if _, err := f.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(a.posts) != 2 || !strings.Contains(a.posts[1], "works again") {
+		t.Errorf("posts = %q, want a recovery message", a.posts)
 	}
 }
 

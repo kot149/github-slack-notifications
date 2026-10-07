@@ -1,0 +1,76 @@
+package github
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+)
+
+const githubAPI = "https://api.github.com"
+
+type Client struct {
+	token string
+	http  *http.Client
+}
+
+func New(token string) *Client {
+	return &Client{token: token, http: &http.Client{Timeout: 30 * time.Second}}
+}
+
+func (g *Client) do(ctx context.Context, method, rawURL string, header http.Header, out any) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+g.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	for k, v := range header {
+		req.Header[k] = v
+	}
+	res, err := g.http.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	switch {
+	case res.StatusCode == http.StatusNotModified:
+		return res, nil
+	case res.StatusCode >= 300:
+		body, _ := io.ReadAll(io.LimitReader(res.Body, 512))
+		return res, fmt.Errorf("%s %s: %s: %s", method, rawURL, res.Status, strings.TrimSpace(string(body)))
+	}
+	if out != nil {
+		if err := json.NewDecoder(res.Body).Decode(out); err != nil {
+			return res, fmt.Errorf("%s %s: decode: %w", method, rawURL, err)
+		}
+	}
+	return res, nil
+}
+
+func (g *Client) get(ctx context.Context, rawURL string, out any) error {
+	_, err := g.do(ctx, http.MethodGet, rawURL, nil, out)
+	return err
+}
+
+// linkRel extracts the URL for rel from an RFC 8288 Link header.
+func linkRel(link, rel string) string {
+	for part := range strings.SplitSeq(link, ",") {
+		u, params, ok := strings.Cut(part, ";")
+		if ok && strings.Contains(params, `rel="`+rel+`"`) {
+			return strings.Trim(strings.TrimSpace(u), "<>")
+		}
+	}
+	return ""
+}
+
+// htmlURL converts an API URL to its github.com page as a fallback when the API object can't be fetched.
+func htmlURL(apiURL string) string {
+	u := strings.Replace(apiURL, "https://api.github.com/repos/", "https://github.com/", 1)
+	return strings.Replace(u, "/pulls/", "/pull/", 1)
+}

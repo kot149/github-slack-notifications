@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"bufio"
@@ -23,18 +23,21 @@ type Config struct {
 	SortOldestFirst bool   `yaml:"sort_oldest_first"`
 	Rollup          bool   `yaml:"rollup"`
 	StateFile       string `yaml:"state_file"`
-	Slack           struct {
-		Channel   string `yaml:"channel"`
-		Username  string `yaml:"username"`
-		IconURL   string `yaml:"icon_url"`
-		IconEmoji string `yaml:"icon_emoji"`
-	} `yaml:"slack"`
+	Slack           Slack  `yaml:"slack"`
 
 	GitHubToken string `yaml:"-"`
 	SlackToken  string `yaml:"-"`
 }
 
-func loadConfig(path string) (*Config, error) {
+type Slack struct {
+	Channel   string `yaml:"channel"`
+	Username  string `yaml:"username"`
+	IconURL   string `yaml:"icon_url"`
+	IconEmoji string `yaml:"icon_emoji"`
+}
+
+// Load reads the config file at path and the tokens from the environment or .env.local.
+func Load(path string) (*Config, error) {
 	cfg := &Config{MarkAsRead: true, SortOldestFirst: true, Rollup: true, StateFile: "state.json"}
 	cfg.Filter.OnlyUnread = true
 

@@ -11,11 +11,16 @@ const maxMessageLen = 3500
 
 var escaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 
+// Escape makes s safe to put in message text.
+func Escape(s string) string {
+	return escaper.Replace(s)
+}
+
 func link(l event.Link) string {
 	if l.URL == "" {
-		return escaper.Replace(l.Text)
+		return Escape(l.Text)
 	}
-	return "<" + l.URL + "|" + escaper.Replace(l.Text) + ">"
+	return "<" + l.URL + "|" + Escape(l.Text) + ">"
 }
 
 func format(e event.Event) string {

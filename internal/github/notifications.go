@@ -44,7 +44,7 @@ func (g *Client) FetchNotifications(ctx context.Context, since time.Time, lastMo
 	q.Set("participating", strconv.FormatBool(participating))
 	q.Set("all", strconv.FormatBool(all))
 	q.Set("per_page", "50")
-	next := githubAPI + "/notifications?" + q.Encode()
+	next := g.BaseURL + "/notifications?" + q.Encode()
 
 	header := http.Header{}
 	if lastModified != "" {
@@ -81,6 +81,6 @@ func (g *Client) FetchNotifications(ctx context.Context, since time.Time, lastMo
 }
 
 func (g *Client) MarkAsRead(ctx context.Context, threadID string) error {
-	_, err := g.do(ctx, http.MethodPatch, githubAPI+"/notifications/threads/"+threadID, nil, nil)
+	_, err := g.do(ctx, http.MethodPatch, g.BaseURL+"/notifications/threads/"+threadID, nil, nil)
 	return err
 }

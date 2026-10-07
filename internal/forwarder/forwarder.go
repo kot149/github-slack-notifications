@@ -115,7 +115,7 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 			}
 			f.markAsRead(ctx, msg.SourceIDs)
 		}
-		log.Printf("forwarded %d notifications", len(targets))
+		log.Printf("forwarded %d notifications", len(posted))
 
 		// Notifications that produced no event, e.g. updates after an already forwarded merge.
 		var dropped []string

@@ -71,6 +71,19 @@ func linkRel(link, rel string) string {
 
 // htmlURL converts an API URL to its github.com page as a fallback when the API object can't be fetched.
 func htmlURL(apiURL string) string {
-	u := strings.Replace(apiURL, "https://api.github.com/repos/", "https://github.com/", 1)
-	return strings.Replace(u, "/pulls/", "/pull/", 1)
+	path, ok := strings.CutPrefix(apiURL, "https://api.github.com/repos/")
+	if !ok {
+		return apiURL
+	}
+	// owner/repo/kind/rest; the page path uses the singular kind for PRs and commits.
+	parts := strings.SplitN(path, "/", 4)
+	if len(parts) == 4 {
+		switch parts[2] {
+		case "pulls":
+			parts[2] = "pull"
+		case "commits":
+			parts[2] = "commit"
+		}
+	}
+	return "https://github.com/" + strings.Join(parts, "/")
 }

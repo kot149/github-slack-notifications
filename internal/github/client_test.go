@@ -14,3 +14,19 @@ func TestLinkRel(t *testing.T) {
 		t.Errorf("empty: %q", got)
 	}
 }
+
+func TestHTMLURL(t *testing.T) {
+	tests := map[string]string{
+		"https://api.github.com/repos/o/r/pulls/1":     "https://github.com/o/r/pull/1",
+		"https://api.github.com/repos/o/r/commits/abc": "https://github.com/o/r/commit/abc",
+		"https://api.github.com/repos/o/r/issues/2":    "https://github.com/o/r/issues/2",
+		"https://api.github.com/repos/o/pulls/pulls/3": "https://github.com/o/pulls/pull/3",
+		"https://api.github.com/repos/o/r":             "https://github.com/o/r",
+		"https://example.com/not-the-api":              "https://example.com/not-the-api",
+	}
+	for in, want := range tests {
+		if got := htmlURL(in); got != want {
+			t.Errorf("htmlURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

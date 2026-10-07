@@ -1,4 +1,4 @@
-package main
+package state
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ type State struct {
 	Seen map[string]time.Time `json:"seen,omitempty"`
 }
 
-func loadState(path string) (State, error) {
+func Load(path string) (State, error) {
 	var s State
 	b, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
@@ -26,7 +26,7 @@ func loadState(path string) (State, error) {
 	return s, json.Unmarshal(b, &s)
 }
 
-func saveState(path string, s State) error {
+func Save(path string, s State) error {
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err

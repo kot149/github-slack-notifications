@@ -1,7 +1,6 @@
-package main
+package github
 
 import (
-	"strings"
 	"testing"
 	"time"
 )
@@ -47,72 +46,6 @@ func TestClassify(t *testing.T) {
 				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestFormatEvent(t *testing.T) {
-	e := Event{
-		Emoji: ":red_circle:", Label: "CI failed (1/3)", LabelURL: "https://github.com/o/r/pull/1/checks",
-		Repo:    Link{"https://github.com/o/r", "o/r"},
-		Subject: Link{"https://github.com/o/r/pull/1", "#1 Fix <a> & <b>"},
-		Details: []Link{{"https://github.com/o/r/runs/9", "lint"}},
-	}
-	want := "*<https://github.com/o/r/pull/1/checks|:red_circle: CI failed (1/3)>*\n" +
-		"<https://github.com/o/r|o/r> <https://github.com/o/r/pull/1|#1 Fix &lt;a&gt; &amp; &lt;b&gt;>\n" +
-		"• <https://github.com/o/r/runs/9|lint>"
-	if got := formatEvent(e); got != want {
-		t.Errorf("got\n%s\nwant\n%s", got, want)
-	}
-}
-
-func TestBuildMessagesSplitsLongRollups(t *testing.T) {
-	e := Event{Label: strings.Repeat("x", 1500)}
-	if got := len(buildMessages([]Event{e, e, e}, true)); got != 2 {
-		t.Errorf("rollup: got %d messages, want 2", got)
-	}
-	if got := len(buildMessages([]Event{e, e, e}, false)); got != 3 {
-		t.Errorf("no rollup: got %d messages, want 3", got)
-	}
-}
-
-func TestKeep(t *testing.T) {
-	f := &Forwarder{cfg: &Config{}}
-	f.cfg.Filter.IncludeReasons = []string{"comment", "mention"}
-	f.cfg.Filter.ExcludeRepositories = []string{"o/Skip"}
-
-	n := notif("comment")
-	n.Repository.FullName = "o/r"
-	if !f.keep(n) {
-		t.Error("included reason should be kept")
-	}
-	n.Reason = "subscribed"
-	if f.keep(n) {
-		t.Error("reason outside include list should be dropped")
-	}
-	n.Reason = "comment"
-	n.Repository.FullName = "o/skip"
-	if f.keep(n) {
-		t.Error("excluded repository should be dropped regardless of case")
-	}
-}
-
-func TestLinkRel(t *testing.T) {
-	h := `<https://api.github.com/x?page=2>; rel="next", <https://api.github.com/x?page=5>; rel="last"`
-	if got := linkRel(h, "next"); got != "https://api.github.com/x?page=2" {
-		t.Errorf("next: %q", got)
-	}
-	if got := linkRel(h, "last"); got != "https://api.github.com/x?page=5" {
-		t.Errorf("last: %q", got)
-	}
-	if got := linkRel("", "next"); got != "" {
-		t.Errorf("empty: %q", got)
-	}
-}
-
-func TestCITitle(t *testing.T) {
-	m := ciTitle.FindStringSubmatch("CI workflow run failed for feature/x branch")
-	if m == nil || m[1] != "CI" || m[2] != "failed" || m[3] != "feature/x" {
-		t.Errorf("got %q", m)
 	}
 }
 

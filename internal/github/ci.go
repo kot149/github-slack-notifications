@@ -7,12 +7,17 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/kot149/github-slack-notifications/internal/event"
 )
 
 // CI notification titles look like "CI workflow run failed for main branch".
 var ciTitle = regexp.MustCompile(`^(.+?) workflow run (\w+) for (.+) branch$`)
+
+// closedPRWindow is how long after a PR is closed a CI run on its branch still counts as the PR's,
+// e.g. a run that finishes after the PR is merged.
+const closedPRWindow = time.Hour
 
 func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) error {
 	m := ciTitle.FindStringSubmatch(n.Subject.Title)
@@ -24,16 +29,22 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 	owner, _, _ := strings.Cut(repo, "/")
 
 	var pulls []struct {
-		HTMLURL string `json:"html_url"`
-		Number  int    `json:"number"`
-		Title   string `json:"title"`
-		Head    struct {
+		HTMLURL  string     `json:"html_url"`
+		Number   int        `json:"number"`
+		Title    string     `json:"title"`
+		ClosedAt *time.Time `json:"closed_at"`
+		Head     struct {
 			SHA string `json:"sha"`
 		} `json:"head"`
 	}
 	q := url.Values{"state": {"all"}, "per_page": {"1"}, "head": {owner + ":" + branch}}
 	if err := g.get(ctx, g.BaseURL+"/repos/"+repo+"/pulls?"+q.Encode(), &pulls); err != nil {
 		return err
+	}
+	// A PR closed long before the run is from an earlier use of the branch, e.g. a past develop -> main
+	// release PR, and its head SHA no longer matches the run.
+	if len(pulls) > 0 && pulls[0].ClosedAt != nil && pulls[0].ClosedAt.Before(n.UpdatedAt.Add(-closedPRWindow)) {
+		pulls = nil
 	}
 	if len(pulls) == 0 {
 		actions := n.Repository.HTMLURL + "/actions"

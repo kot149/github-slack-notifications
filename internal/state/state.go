@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"time"
 )
@@ -23,16 +24,32 @@ func Load(path string) (State, error) {
 	if err != nil {
 		return s, err
 	}
-	return s, json.Unmarshal(b, &s)
+	if err := json.Unmarshal(b, &s); err != nil {
+		return s, fmt.Errorf("%s: %w (delete the file to start over)", path, err)
+	}
+	return s, nil
 }
 
+// Save replaces the file at path atomically, syncing first so a crash can't leave it empty.
 func Save(path string, s State) error {
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)

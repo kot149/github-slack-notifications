@@ -178,3 +178,32 @@ func TestCheckStateFailsOnUnwritableStateFile(t *testing.T) {
 		t.Error("want error for a state file that can't be written")
 	}
 }
+
+func TestRunAppliesLookbackOnlyOnce(t *testing.T) {
+	a := newFakeAPI(t)
+	a.addPR(1, time.Now().Add(-time.Minute))
+	a.notModified = true
+	f := newTestForwarder(t, a, true)
+	f.lookback = 24 * time.Hour
+
+	var requests int
+	inner := a.srv.Config.Handler
+	a.srv.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/notifications" {
+			requests++
+			if requests == 2 && r.Header.Get("If-Modified-Since") == "" {
+				t.Error("second poll should send If-Modified-Since")
+			}
+		}
+		inner.ServeHTTP(w, r)
+	})
+
+	for range 2 {
+		if _, err := f.Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if requests != 2 {
+		t.Errorf("got %d notification requests, want 2", requests)
+	}
+}

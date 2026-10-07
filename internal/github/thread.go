@@ -1,6 +1,7 @@
 package github
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log"
@@ -48,8 +49,9 @@ func (g *Client) threadEvent(ctx context.Context, n Notification, e *event.Event
 		f.Review = r
 	}
 
-	e.Emoji, e.Label = classify(n, f)
-	e.LabelURL = t.HTMLURL
+	var url string
+	e.Emoji, e.Label, url = classify(n, f)
+	e.LabelURL = cmp.Or(url, t.HTMLURL)
 	e.Subject = event.Link{URL: t.HTMLURL, Text: fmt.Sprintf("#%d %s", t.Number, n.Subject.Title)}
 	return nil
 }
@@ -57,6 +59,7 @@ func (g *Client) threadEvent(ctx context.Context, n Notification, e *event.Event
 func (g *Client) fetchActivity(ctx context.Context, apiURL string) (*activity, error) {
 	var c struct {
 		User        ghUser    `json:"user"`
+		HTMLURL     string    `json:"html_url"`
 		CreatedAt   time.Time `json:"created_at"`
 		SubmittedAt time.Time `json:"submitted_at"`
 		State       string    `json:"state"`
@@ -65,14 +68,15 @@ func (g *Client) fetchActivity(ctx context.Context, apiURL string) (*activity, e
 		return nil, err
 	}
 	if strings.Contains(apiURL, "/reviews/") {
-		return &activity{Author: c.User.Login, At: c.SubmittedAt, State: c.State}, nil
+		return &activity{Author: c.User.Login, At: c.SubmittedAt, State: c.State, URL: c.HTMLURL}, nil
 	}
-	return &activity{Author: c.User.Login, At: c.CreatedAt, Inline: strings.Contains(apiURL, "/pulls/comments/")}, nil
+	return &activity{Author: c.User.Login, At: c.CreatedAt, Inline: strings.Contains(apiURL, "/pulls/comments/"), URL: c.HTMLURL}, nil
 }
 
 func (g *Client) latestReview(ctx context.Context, pullURL string) (*activity, error) {
 	type review struct {
 		User        ghUser    `json:"user"`
+		HTMLURL     string    `json:"html_url"`
 		SubmittedAt time.Time `json:"submitted_at"`
 		State       string    `json:"state"`
 	}
@@ -92,5 +96,5 @@ func (g *Client) latestReview(ctx context.Context, pullURL string) (*activity, e
 		return nil, nil
 	}
 	r := reviews[len(reviews)-1]
-	return &activity{Author: r.User.Login, At: r.SubmittedAt, State: r.State}, nil
+	return &activity{Author: r.User.Login, At: r.SubmittedAt, State: r.State, URL: r.HTMLURL}, nil
 }

@@ -2,8 +2,11 @@ package config
 
 import (
 	"bufio"
+	"bytes"
 	"cmp"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -45,7 +48,9 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := yaml.Unmarshal(b, cfg); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	dec.KnownFields(true)
+	if err := dec.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 

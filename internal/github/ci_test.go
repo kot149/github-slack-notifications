@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/kot149/github-slack-notifications/internal/event"
 )
@@ -50,5 +51,30 @@ func TestCIEventEscapesBranchAndFollowsPages(t *testing.T) {
 	}
 	if e.Label != "CI failed (1/2)" {
 		t.Errorf("label = %q", e.Label)
+	}
+}
+
+func TestCIEventIgnoresLongClosedPR(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/o/r/pulls" {
+			t.Errorf("unexpected request %s", r.URL)
+			return
+		}
+		fmt.Fprint(w, `[{"html_url":"https://github.com/o/r/pull/1","number":1,"title":"Release","closed_at":"2026-01-01T00:00:00Z","head":{"sha":"old"}}]`)
+	}))
+	defer srv.Close()
+
+	g := New("token")
+	g.BaseURL = srv.URL
+	n := Notification{UpdatedAt: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)}
+	n.Subject.Title = "CI workflow run failed for develop branch"
+	n.Repository.FullName = "o/r"
+	n.Repository.HTMLURL = "https://github.com/o/r"
+	var e event.Event
+	if err := g.ciEvent(context.Background(), n, &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Label != "CI failed: CI" || e.Subject.Text != "develop" {
+		t.Errorf("got label %q subject %q, want the branch event", e.Label, e.Subject.Text)
 	}
 }

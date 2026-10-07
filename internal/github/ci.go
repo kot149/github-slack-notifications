@@ -3,6 +3,8 @@ package github
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -29,8 +31,8 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 			SHA string `json:"sha"`
 		} `json:"head"`
 	}
-	q := fmt.Sprintf("%s/repos/%s/pulls?state=all&per_page=1&head=%s:%s", g.BaseURL, repo, owner, branch)
-	if err := g.get(ctx, q, &pulls); err != nil {
+	q := url.Values{"state": {"all"}, "per_page": {"1"}, "head": {owner + ":" + branch}}
+	if err := g.get(ctx, g.BaseURL+"/repos/"+repo+"/pulls?"+q.Encode(), &pulls); err != nil {
 		return err
 	}
 	if len(pulls) == 0 {
@@ -41,20 +43,27 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 	}
 	pr := pulls[0]
 
-	var runs struct {
-		CheckRuns []struct {
-			Name       string `json:"name"`
-			HTMLURL    string `json:"html_url"`
-			Status     string `json:"status"`
-			Conclusion string `json:"conclusion"`
-		} `json:"check_runs"`
+	type checkRun struct {
+		Name       string `json:"name"`
+		HTMLURL    string `json:"html_url"`
+		Status     string `json:"status"`
+		Conclusion string `json:"conclusion"`
 	}
-	if err := g.get(ctx, fmt.Sprintf("%s/repos/%s/commits/%s/check-runs?per_page=100", g.BaseURL, repo, pr.Head.SHA), &runs); err != nil {
-		return err
+	var checkRuns []checkRun
+	for next := fmt.Sprintf("%s/repos/%s/commits/%s/check-runs?per_page=100", g.BaseURL, repo, pr.Head.SHA); next != ""; {
+		var page struct {
+			CheckRuns []checkRun `json:"check_runs"`
+		}
+		res, err := g.do(ctx, http.MethodGet, next, nil, &page)
+		if err != nil {
+			return err
+		}
+		checkRuns = append(checkRuns, page.CheckRuns...)
+		next = linkRel(res.Header.Get("Link"), "next")
 	}
 	var total, pending int
 	var failed []event.Link
-	for _, r := range runs.CheckRuns {
+	for _, r := range checkRuns {
 		switch {
 		case r.Status != "completed":
 			pending++

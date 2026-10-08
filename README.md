@@ -57,6 +57,8 @@ The first line links to the comment or review for comment and review events, and
 
    An existing config file is kept, and pressing Enter keeps a value already in `.env.local`. Environment variables can be used instead of `.env.local`.
 
+   Values passed as flags are saved without prompting, e.g. `init --slack-channel C0123456789`. `--github-token` and `--slack-token` work the same way, but leave the tokens in shell history.
+
 3. Edit `config.yml` to configure filters and other options
 
    - The config file is `./config.yml` if it exists, otherwise `$XDG_CONFIG_HOME/github-slack-notifications/config.yml` (`~/.config` when unset). `--config` overrides it, for `init` too

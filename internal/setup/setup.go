@@ -29,8 +29,9 @@ var secrets = []secret{
 }
 
 // Run writes template to configPath unless it exists, then asks for each
-// secret and saves the answers to .env.local next to the config file.
-func Run(configPath string, template []byte, in *os.File, out io.Writer) error {
+// secret not in given and saves the values to .env.local next to the config
+// file. given is keyed by the .env.local key, e.g. GITHUB_TOKEN.
+func Run(configPath string, template []byte, given map[string]string, in *os.File, out io.Writer) error {
 	wrote, err := WriteConfig(configPath, template)
 	if err != nil {
 		return err
@@ -48,11 +49,21 @@ func Run(configPath string, template []byte, in *os.File, out io.Writer) error {
 	}
 	current := ParseDotEnv(content)
 
-	fmt.Fprintf(out, "\nValues for %s (Enter keeps the current value):\n", envPath)
-	r := bufio.NewReader(in)
 	values := map[string]string{}
-	var missing []string
+	var ask []secret
 	for _, s := range secrets {
+		if v := strings.TrimSpace(given[s.key]); v != "" {
+			values[s.key] = v
+		} else {
+			ask = append(ask, s)
+		}
+	}
+	if len(ask) > 0 {
+		fmt.Fprintf(out, "\nValues for %s (Enter keeps the current value):\n", envPath)
+	}
+	r := bufio.NewReader(in)
+	var missing []string
+	for _, s := range ask {
 		label := s.prompt
 		if current[s.key] != "" {
 			label += " [set]"

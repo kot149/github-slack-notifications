@@ -9,14 +9,22 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  check:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: fmt
+            run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+          - name: vet
+            run: go vet ./...
+          - name: test
+            run: go test ./...
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - name: gofmt
-        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
-      - run: go vet ./...
-      - run: go test ./...
+      - run: ${{ matrix.run }}

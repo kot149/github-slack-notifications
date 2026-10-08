@@ -21,9 +21,15 @@ var configTemplate []byte
 
 func main() {
 	log.SetFlags(log.LstdFlags)
-	if len(os.Args) > 1 && os.Args[1] == "init" {
-		runInit(os.Args[2:])
-		return
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "init":
+			runInit(os.Args[2:])
+			return
+		case "config":
+			runConfig(os.Args[2:])
+			return
+		}
 	}
 
 	configPath := flag.String("config", config.DefaultPath(), "path to the config file; .env.local and a relative state_file are read next to it")
@@ -31,7 +37,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "print messages instead of posting; implies --once and changes nothing")
 	lookback := flag.Duration("lookback", 0, "on the first check, fetch notifications updated within this duration instead of since the last run, e.g. 24h")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n  %[1]s [flags]\n  %[1]s init [--config path]   create the config file and .env.local\n\nFlags:\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n  %[1]s [flags]\n  %[1]s init [--config path]   create the config file and .env.local\n  %[1]s config <command>       inspect or change the config (see config -h)\n\nFlags:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()

@@ -16,7 +16,7 @@ import (
 func main() {
 	configPath := flag.String("config", config.DefaultPath(), "path to the config file; .env.local and a relative state_file are read next to it")
 	once := flag.Bool("once", false, "check once and exit instead of polling")
-	dryRun := flag.Bool("dry-run", false, "print messages instead of posting; implies -once and changes nothing")
+	dryRun := flag.Bool("dry-run", false, "print messages instead of posting; implies --once and changes nothing")
 	lookback := flag.Duration("lookback", 0, "on the first check, fetch notifications updated within this duration instead of since the last run, e.g. 24h")
 	flag.Parse()
 	log.SetFlags(log.LstdFlags)

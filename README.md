@@ -70,10 +70,10 @@ The first line links to the comment or review for comment and review events, and
 ## Usage
 
 ```sh
-github-slack-notifications                         # keep running and poll
-github-slack-notifications -once                   # check once and exit
-github-slack-notifications -dry-run -lookback 24h  # only print messages for the last 24 hours (no posting, marking as read, or saving state)
-github-slack-notifications -config path/to/config.yml
+github-slack-notifications                          # keep running and poll
+github-slack-notifications --once                    # check once and exit
+github-slack-notifications --dry-run --lookback 24h  # only print messages for the last 24 hours (no posting, marking as read, or saving state)
+github-slack-notifications --config path/to/config.yml
 ```
 
 ### Running with launchd

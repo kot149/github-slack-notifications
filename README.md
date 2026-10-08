@@ -45,27 +45,22 @@ The first line links to the comment or review for comment and review events, and
 
    Or clone this repository and run `go build -o github-slack-notifications .`
 
-2. Create the config directory and copy [config.yml](config.yml) into it, then configure filters and other options
+2. Run `init`, which places [config.yml](config.yml) and asks for the values below to save in `.env.local` next to it (tokens are typed without echo)
 
    ```sh
-   mkdir -p ~/.config/github-slack-notifications
-   curl -fsSL -o ~/.config/github-slack-notifications/config.yml \
-     https://raw.githubusercontent.com/kot149/github-slack-notifications/main/config.yml
+   github-slack-notifications init
    ```
 
-   - The config file is `./config.yml` if it exists, otherwise `$XDG_CONFIG_HOME/github-slack-notifications/config.yml` (`~/.config` when unset). `-config` overrides it
-   - `.env.local` and a relative `state_file` are read from the config file's directory
-
-3. Put the following in `.env.local` next to the config file (environment variables work too)
    - `GITHUB_TOKEN`: a classic PAT with the `notifications` scope, authorized for your org's SSO
    - `SLACK_TOKEN`: a token for a bot invited to the target channel. Changing `username` and the icon requires the `chat:write.customize` scope
    - `SLACK_CHANNEL`: the target channel ID or user ID (can also be set as `slack.channel` in `config.yml`)
 
-   ```
-   GITHUB_TOKEN=ghp_...
-   SLACK_TOKEN=xoxb-...
-   SLACK_CHANNEL=C0123456789
-   ```
+   An existing config file is kept, and pressing Enter keeps a value already in `.env.local`. Environment variables can be used instead of `.env.local`.
+
+3. Edit `config.yml` to configure filters and other options
+
+   - The config file is `./config.yml` if it exists, otherwise `$XDG_CONFIG_HOME/github-slack-notifications/config.yml` (`~/.config` when unset). `--config` overrides it, for `init` too
+   - `.env.local` and a relative `state_file` are read from the config file's directory
 
 ## Usage
 

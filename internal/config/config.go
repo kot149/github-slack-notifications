@@ -106,19 +106,27 @@ func loadDotEnv(path string) error {
 
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		k, v, ok := strings.Cut(strings.TrimPrefix(line, "export "), "=")
+		k, v, ok := ParseDotEnvLine(sc.Text())
 		if !ok {
 			continue
 		}
-		k = strings.TrimSpace(k)
-		v = strings.Trim(strings.TrimSpace(v), `"'`)
 		if _, set := os.LookupEnv(k); !set {
 			os.Setenv(k, v)
 		}
 	}
 	return sc.Err()
+}
+
+// ParseDotEnvLine parses a KEY=VALUE line of .env.local. ok is false for
+// blank lines, comments and lines without "=".
+func ParseDotEnvLine(line string) (k, v string, ok bool) {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return "", "", false
+	}
+	k, v, ok = strings.Cut(strings.TrimPrefix(line, "export "), "=")
+	if !ok {
+		return "", "", false
+	}
+	return strings.TrimSpace(k), strings.Trim(strings.TrimSpace(v), `"'`), true
 }

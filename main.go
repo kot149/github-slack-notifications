@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -11,15 +13,28 @@ import (
 
 	"github.com/kot149/github-slack-notifications/internal/config"
 	"github.com/kot149/github-slack-notifications/internal/forwarder"
+	"github.com/kot149/github-slack-notifications/internal/setup"
 )
 
+//go:embed config.yml
+var configTemplate []byte
+
 func main() {
+	log.SetFlags(log.LstdFlags)
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		runInit(os.Args[2:])
+		return
+	}
+
 	configPath := flag.String("config", config.DefaultPath(), "path to the config file; .env.local and a relative state_file are read next to it")
 	once := flag.Bool("once", false, "check once and exit instead of polling")
 	dryRun := flag.Bool("dry-run", false, "print messages instead of posting; implies --once and changes nothing")
 	lookback := flag.Duration("lookback", 0, "on the first check, fetch notifications updated within this duration instead of since the last run, e.g. 24h")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n  %[1]s [flags]\n  %[1]s init [--config path]   create the config file and .env.local\n\nFlags:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 	flag.Parse()
-	log.SetFlags(log.LstdFlags)
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
@@ -51,5 +66,14 @@ func main() {
 			return
 		case <-time.After(wait):
 		}
+	}
+}
+
+func runInit(args []string) {
+	fs := flag.NewFlagSet("init", flag.ExitOnError)
+	configPath := fs.String("config", config.DefaultPath(), "path of the config file to create; .env.local is written next to it")
+	fs.Parse(args)
+	if err := setup.Run(*configPath, configTemplate, os.Stdin, os.Stdout); err != nil {
+		log.Fatal(err)
 	}
 }

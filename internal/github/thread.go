@@ -49,6 +49,14 @@ func (g *Client) threadEvent(ctx context.Context, n Notification, e *event.Event
 		f.Review = r
 	}
 
+	if f.Comment != nil || f.Review != nil {
+		me, err := g.viewer(ctx)
+		if err != nil {
+			log.Printf("notification %s: user: %v", n.ID, err)
+		}
+		f.Me = me
+	}
+
 	var url string
 	e.Emoji, e.Label, url = classify(n, f)
 	e.LabelURL = cmp.Or(url, t.HTMLURL)

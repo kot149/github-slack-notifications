@@ -49,6 +49,32 @@ func TestClassify(t *testing.T) {
 	}
 }
 
+func TestClassifySkipsOwnActivity(t *testing.T) {
+	old := base.Add(-time.Hour)
+	tests := []struct {
+		name  string
+		facts threadFacts
+		want  string
+	}{
+		{"own inline comment", threadFacts{IsPR: true, CreatedAt: old, Me: "me", Comment: &activity{Author: "Me", At: base, Inline: true}}, ""},
+		{"own commented review", threadFacts{IsPR: true, CreatedAt: old, Me: "me", Review: &activity{Author: "me", At: base, State: "COMMENTED"}}, ""},
+		{"own comment with other's approval", threadFacts{IsPR: true, CreatedAt: old, Me: "me",
+			Comment: &activity{Author: "me", At: base},
+			Review:  &activity{Author: "alice", At: base, State: "APPROVED"}}, "Approved by alice"},
+		{"own approval with other's comment", threadFacts{IsPR: true, CreatedAt: old, Me: "me",
+			Comment: &activity{Author: "dave", At: base},
+			Review:  &activity{Author: "me", At: base, State: "APPROVED"}}, "New comment by dave"},
+		{"other's comment", threadFacts{IsPR: true, CreatedAt: old, Me: "me", Comment: &activity{Author: "dave", At: base}}, "New comment by dave"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, got, _ := classify(notif("review_requested"), tt.facts); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestClassifyUsesLastReadAt(t *testing.T) {
 	n := notif("comment")
 	n.LastReadAt = ptr(base.Add(-90 * time.Second))

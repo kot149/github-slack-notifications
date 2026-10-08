@@ -1,6 +1,9 @@
 package github
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // activity is something a person did on a PR or issue, used to tell which event a notification is about.
 type activity struct {
@@ -18,6 +21,7 @@ type threadFacts struct {
 	ClosedAt  *time.Time
 	Comment   *activity
 	Review    *activity
+	Me        string // login of the token owner, whose own activity isn't forwarded
 }
 
 // eventWindow is how close an activity must be to the notification's updated_at to be its cause.
@@ -57,25 +61,34 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 			cands = append(cands, candidate{*at, emoji, label, url})
 		}
 	}
+	// Own activity takes part only to be dropped if it's the latest update.
+	own := func(a *activity) bool { return f.Me != "" && strings.EqualFold(a.Author, f.Me) }
+	addBy := func(a *activity, emoji, label string) {
+		if own(a) {
+			add(&a.At, "", "", "")
+		} else {
+			add(&a.At, emoji, label+a.Author, a.URL)
+		}
+	}
 	add(f.MergedAt, ":twisted_rightwards_arrows:", "Merged PR", "")
 	add(f.ClosedAt, ":no_entry_sign:", "Closed "+noun, "")
 	if r := f.Review; r != nil {
 		switch r.State {
 		case "APPROVED":
-			add(&r.At, ":white_check_mark:", "Approved by "+r.Author, r.URL)
+			addBy(r, ":white_check_mark:", "Approved by ")
 		case "CHANGES_REQUESTED":
-			add(&r.At, ":warning:", "Changes requested by "+r.Author, r.URL)
+			addBy(r, ":warning:", "Changes requested by ")
 		}
 	}
 	if c := f.Comment; c != nil {
 		if c.Inline {
-			add(&c.At, ":speech_balloon:", "New review comment by "+c.Author, c.URL)
+			addBy(c, ":speech_balloon:", "New review comment by ")
 		} else {
-			add(&c.At, ":speech_balloon:", "New comment by "+c.Author, c.URL)
+			addBy(c, ":speech_balloon:", "New comment by ")
 		}
 	}
 	if r := f.Review; r != nil && r.State != "APPROVED" && r.State != "CHANGES_REQUESTED" {
-		add(&r.At, ":speech_balloon:", "New review comment by "+r.Author, r.URL)
+		addBy(r, ":speech_balloon:", "New review comment by ")
 	}
 
 	if len(cands) > 0 {
@@ -86,10 +99,11 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 			}
 		}
 		for _, c := range cands {
-			if !c.at.Before(latest.Add(-sameMoment)) {
+			if c.label != "" && !c.at.Before(latest.Add(-sameMoment)) {
 				return c.emoji, c.label, c.url
 			}
 		}
+		return "", "", ""
 	}
 
 	switch n.Reason {

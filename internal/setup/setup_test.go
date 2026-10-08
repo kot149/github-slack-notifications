@@ -48,7 +48,7 @@ func TestRun(t *testing.T) {
 	in.Seek(0, 0)
 
 	var out bytes.Buffer
-	if err := Run(path, []byte("tmpl\n"), in, &out); err != nil {
+	if err := Run(path, []byte("tmpl\n"), nil, in, &out); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(path); string(b) != "tmpl\n" {
@@ -62,5 +62,30 @@ func TestRun(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Not set: SLACK_CHANNEL") {
 		t.Errorf("output does not report SLACK_CHANNEL as missing:\n%s", out.String())
+	}
+}
+
+func TestRunGiven(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yml")
+	envPath := filepath.Join(dir, ".env.local")
+
+	in, err := os.CreateTemp(dir, "stdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in.WriteString("C9\n")
+	in.Seek(0, 0)
+
+	given := map[string]string{"GITHUB_TOKEN": "ghp_x", "SLACK_TOKEN": "xoxb-y"}
+	var out bytes.Buffer
+	if err := Run(path, []byte("tmpl\n"), given, in, &out); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(envPath); string(b) != "GITHUB_TOKEN=ghp_x\nSLACK_TOKEN=xoxb-y\nSLACK_CHANNEL=C9\n" {
+		t.Errorf(".env.local = %q", b)
+	}
+	if s := out.String(); strings.Contains(s, "GITHUB_TOKEN (") || !strings.Contains(s, "SLACK_CHANNEL (") {
+		t.Errorf("prompts only for values not given:\n%s", s)
 	}
 }

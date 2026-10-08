@@ -37,7 +37,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "print messages instead of posting; implies --once and changes nothing")
 	lookback := flag.Duration("lookback", 0, "on the first check, fetch notifications updated within this duration instead of since the last run, e.g. 24h")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n  %[1]s [flags]\n  %[1]s init [--config path]   create the config file and .env.local\n  %[1]s config <command>       inspect or change the config (see config -h)\n\nFlags:\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage:\n  %[1]s [flags]\n  %[1]s init [flags]           create the config file and .env.local\n  %[1]s config <command>       inspect or change the config (see config -h)\n\nFlags:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -78,8 +78,24 @@ func main() {
 func runInit(args []string) {
 	fs := flag.NewFlagSet("init", flag.ExitOnError)
 	configPath := fs.String("config", config.DefaultPath(), "path of the config file to create; .env.local is written next to it")
+	given := map[string]string{}
+	for _, f := range [][2]string{
+		{"github-token", "GITHUB_TOKEN"},
+		{"slack-token", "SLACK_TOKEN"},
+		{"slack-channel", "SLACK_CHANNEL"},
+	} {
+		fs.Func(f[0], "save "+f[1]+" to .env.local without prompting for it", func(v string) error {
+			given[f[1]] = v
+			return nil
+		})
+	}
 	fs.Parse(args)
-	if err := setup.Run(*configPath, configTemplate, os.Stdin, os.Stdout); err != nil {
+	if fs.NArg() > 0 {
+		fmt.Fprintf(fs.Output(), "unexpected argument: %s\n", fs.Arg(0))
+		fs.Usage()
+		os.Exit(2)
+	}
+	if err := setup.Run(*configPath, configTemplate, given, os.Stdin, os.Stdout); err != nil {
 		log.Fatal(err)
 	}
 }

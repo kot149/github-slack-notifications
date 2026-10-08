@@ -12,6 +12,7 @@ type activity struct {
 	URL    string // github.com page of the comment or review
 	State  string // review state; empty for comments
 	Inline bool   // review comment on a diff line
+	Reply  bool   // review comment replying to another in its thread
 }
 
 type threadFacts struct {
@@ -81,7 +82,9 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 		}
 	}
 	if c := f.Comment; c != nil {
-		if c.Inline {
+		if c.Reply {
+			addBy(c, ":speech_balloon:", "New reply to review comment by ")
+		} else if c.Inline {
 			addBy(c, ":speech_balloon:", "New review comment by ")
 		} else {
 			addBy(c, ":speech_balloon:", "New comment by ")

@@ -31,6 +31,7 @@ func TestClassify(t *testing.T) {
 			Comment: &activity{Author: "bob", At: base},
 			Review:  &activity{Author: "alice", At: base, State: "APPROVED"}}, "Approved by alice"},
 		{"inline comment", "comment", threadFacts{IsPR: true, CreatedAt: old, Comment: &activity{Author: "carol", At: base, Inline: true}}, "New review comment by carol"},
+		{"review comment reply", "comment", threadFacts{IsPR: true, CreatedAt: old, Comment: &activity{Author: "carol", At: base, Inline: true, Reply: true}}, "New reply to review comment by carol"},
 		{"comment", "comment", threadFacts{IsPR: true, CreatedAt: old, Comment: &activity{Author: "dave", At: base}}, "New comment by dave"},
 		{"commented review", "author", threadFacts{IsPR: true, CreatedAt: old, Review: &activity{Author: "erin", At: base, State: "COMMENTED"}}, "New review comment by erin"},
 		{"stale activity ignored", "author", threadFacts{IsPR: true, CreatedAt: old, Comment: &activity{Author: "dave", At: old}}, "Updated PR"},

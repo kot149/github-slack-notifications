@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -44,7 +45,11 @@ func TestLatestReviewNone(t *testing.T) {
 
 func TestFetchActivityKinds(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"user":{"login":"a"},"html_url":"u","created_at":"2026-01-01T00:00:00Z","submitted_at":"2026-01-02T00:00:00Z","state":"APPROVED"}`)
+		reply := ""
+		if strings.HasSuffix(r.URL.Path, "/5") {
+			reply = `,"in_reply_to_id":3`
+		}
+		fmt.Fprintf(w, `{"user":{"login":"a"},"html_url":"u","created_at":"2026-01-01T00:00:00Z","submitted_at":"2026-01-02T00:00:00Z","state":"APPROVED"%s}`, reply)
 	}))
 	defer srv.Close()
 	g := New("token")
@@ -53,18 +58,20 @@ func TestFetchActivityKinds(t *testing.T) {
 		path   string
 		state  string
 		inline bool
+		reply  bool
 		day    int
 	}{
-		{"/repos/o/r/pulls/1/reviews/2", "APPROVED", false, 2},
-		{"/repos/o/r/pulls/comments/3", "", true, 1},
-		{"/repos/o/r/issues/comments/4", "", false, 1},
+		{"/repos/o/r/pulls/1/reviews/2", "APPROVED", false, false, 2},
+		{"/repos/o/r/pulls/comments/3", "", true, false, 1},
+		{"/repos/o/r/pulls/comments/5", "", true, true, 1},
+		{"/repos/o/r/issues/comments/4", "", false, false, 1},
 	}
 	for _, tt := range tests {
 		a, err := g.fetchActivity(context.Background(), srv.URL+tt.path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if a.State != tt.state || a.Inline != tt.inline || a.At.Day() != tt.day || a.Author != "a" {
+		if a.State != tt.state || a.Inline != tt.inline || a.Reply != tt.reply || a.At.Day() != tt.day || a.Author != "a" {
 			t.Errorf("%s: got %+v", tt.path, a)
 		}
 	}

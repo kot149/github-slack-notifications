@@ -71,6 +71,7 @@ func (g *Client) fetchActivity(ctx context.Context, apiURL string) (*activity, e
 		CreatedAt   time.Time `json:"created_at"`
 		SubmittedAt time.Time `json:"submitted_at"`
 		State       string    `json:"state"`
+		InReplyToID int64     `json:"in_reply_to_id"`
 	}
 	if err := g.get(ctx, apiURL, &c); err != nil {
 		return nil, err
@@ -78,7 +79,7 @@ func (g *Client) fetchActivity(ctx context.Context, apiURL string) (*activity, e
 	if strings.Contains(apiURL, "/reviews/") {
 		return &activity{Author: c.User.Login, At: c.SubmittedAt, State: c.State, URL: c.HTMLURL}, nil
 	}
-	return &activity{Author: c.User.Login, At: c.CreatedAt, Inline: strings.Contains(apiURL, "/pulls/comments/"), URL: c.HTMLURL}, nil
+	return &activity{Author: c.User.Login, At: c.CreatedAt, Inline: strings.Contains(apiURL, "/pulls/comments/"), Reply: c.InReplyToID != 0, URL: c.HTMLURL}, nil
 }
 
 func (g *Client) latestReview(ctx context.Context, pullURL string) (*activity, error) {

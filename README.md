@@ -25,7 +25,7 @@ The first line links to the comment or review for comment and review events, and
 | Kind | Shown as |
 |---|---|
 | Merge / close | `:twisted_rightwards_arrows: Merged PR` / `:no_entry_sign: Closed PR` |
-| Review | `:white_check_mark: Approved by X` / `:warning: Changes requested by X` / `:speech_balloon: New review comment by X` |
+| Review | `:white_check_mark: Approved by X` / `:warning: Changes requested by X` / `:speech_balloon: New review comment by X` / `:speech_balloon: New reply to review comment by X` |
 | Comment | `:speech_balloon: New comment by X` |
 | By reason | `:eyes: Review requested` / `:point_right: Assigned to PR` / `:mega: Mentioned in PR` |
 | Other | `:sparkles: Opened PR` / `:arrows_counterclockwise: Updated PR` |

@@ -57,36 +57,62 @@ func DefaultPath() string {
 	return filepath.Join(dir, "github-slack-notifications", "config.yml")
 }
 
-// Load reads the config file at path and the tokens from the environment or
-// .env.local. .env.local and a relative state_file are resolved against the
-// config file's directory.
-func Load(path string) (*Config, error) {
-	cfg := &Config{MarkAsRead: true, SortOldestFirst: true, Rollup: true, StateFile: "state.json"}
-	cfg.Filter.OnlyUnread = true
+// EnvPath returns the .env.local next to the config file at configPath.
+func EnvPath(configPath string) string {
+	return filepath.Join(filepath.Dir(configPath), ".env.local")
+}
 
+// Parse reads the config file at path with defaults applied. A relative
+// state_file is resolved against the config file's directory.
+func Parse(path string) (*Config, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+	return ParseBytes(path, b)
+}
+
+// ParseBytes is Parse with the file content given as b.
+func ParseBytes(path string, b []byte) (*Config, error) {
+	cfg := &Config{MarkAsRead: true, SortOldestFirst: true, Rollup: true, StateFile: "state.json"}
+	cfg.Filter.OnlyUnread = true
+
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-
-	dir := filepath.Dir(path)
 	if !filepath.IsAbs(cfg.StateFile) {
-		cfg.StateFile = filepath.Join(dir, cfg.StateFile)
+		cfg.StateFile = filepath.Join(filepath.Dir(path), cfg.StateFile)
 	}
-	if err := loadDotEnv(filepath.Join(dir, ".env.local")); err != nil {
+	return cfg, nil
+}
+
+// Resolve is Parse plus the tokens and SLACK_CHANNEL from the environment or
+// .env.local, without checking that they are set.
+func Resolve(path string) (*Config, error) {
+	cfg, err := Parse(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := loadDotEnv(EnvPath(path)); err != nil {
 		return nil, err
 	}
 	cfg.GitHubToken = os.Getenv("GITHUB_TOKEN")
 	cfg.SlackToken = os.Getenv("SLACK_TOKEN")
+	cfg.Slack.Channel = cmp.Or(os.Getenv("SLACK_CHANNEL"), cfg.Slack.Channel)
+	return cfg, nil
+}
+
+// Load is Resolve, failing when a token or the Slack channel is missing.
+func Load(path string) (*Config, error) {
+	cfg, err := Resolve(path)
+	if err != nil {
+		return nil, err
+	}
 	if cfg.GitHubToken == "" || cfg.SlackToken == "" {
 		return nil, fmt.Errorf("GITHUB_TOKEN and SLACK_TOKEN must be set")
 	}
-	cfg.Slack.Channel = cmp.Or(os.Getenv("SLACK_CHANNEL"), cfg.Slack.Channel)
 	if cfg.Slack.Channel == "" {
 		return nil, fmt.Errorf("SLACK_CHANNEL or slack.channel in %s must be set", path)
 	}

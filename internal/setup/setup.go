@@ -41,7 +41,7 @@ func Run(configPath string, template []byte, in *os.File, out io.Writer) error {
 		fmt.Fprintf(out, "%s already exists, leaving it as is\n", configPath)
 	}
 
-	envPath := filepath.Join(filepath.Dir(configPath), ".env.local")
+	envPath := config.EnvPath(configPath)
 	content, err := os.ReadFile(envPath)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err

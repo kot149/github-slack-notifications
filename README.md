@@ -71,6 +71,18 @@ github-slack-notifications --dry-run --lookback 24h  # only print messages for t
 github-slack-notifications --config path/to/config.yml
 ```
 
+### Inspecting and changing the config
+
+```sh
+github-slack-notifications config path                     # where the config file, .env.local and state file are
+github-slack-notifications config get                      # effective config with defaults and environment applied, tokens masked
+github-slack-notifications config get filter.only_unread   # one effective value
+github-slack-notifications config set rollup false         # value is YAML, e.g. '[owner/a, owner/b]'
+github-slack-notifications config edit                     # open in $VISUAL or $EDITOR, then validate
+```
+
+`set` keeps comments (and the rest of the file as is when the value fits on the key's line), and rejects unknown keys and values of the wrong type. Put `--config path` right after `config` to target another file.
+
 ### Running with launchd
 
 `~/Library/LaunchAgents/local.github-slack-notifications.plist`:

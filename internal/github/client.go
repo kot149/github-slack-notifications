@@ -15,6 +15,19 @@ type Client struct {
 	BaseURL string
 	token   string
 	http    *http.Client
+	login   string // the token owner, cached by viewer
+}
+
+// viewer returns the login of the token owner.
+func (g *Client) viewer(ctx context.Context) (string, error) {
+	if g.login == "" {
+		var u ghUser
+		if err := g.get(ctx, g.BaseURL+"/user", &u); err != nil {
+			return "", err
+		}
+		g.login = u.Login
+	}
+	return g.login, nil
 }
 
 func New(token string) *Client {

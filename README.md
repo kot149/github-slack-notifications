@@ -28,11 +28,15 @@ The first line links to the comment or review for comment and review events, and
 | Review | `:white_check_mark: Approved by X` / `:warning: Changes requested by X` / `:speech_balloon: New review comment by X` / `:speech_balloon: New reply to review comment by X` |
 | Comment | `:speech_balloon: New comment by X` |
 | By reason | `:eyes: Review requested` / `:point_right: Assigned to PR` / `:mega: Mentioned in PR` |
+| Edit | `:pencil2: Edited PR description by X` / `:pencil2: Edited comment by X` / `:pencil2: Edited review by X` / `:pencil2: Edited review comment by X` / `:pencil2: Renamed PR by X` |
+| PR state | `:recycle: Reopened PR by X` / `:arrow_forward: Ready for review by X` / `:construction: Converted to draft by X` / `:arrow_up: Force-pushed by X` / `:arrow_right_hook: Changed base branch by X` / `:wastebasket: Review dismissed by X` |
 | Other | `:sparkles: Opened PR` / `:arrows_counterclockwise: Updated PR` |
 | CI | One item per PR. `:red_circle: CI failed (2/15)` with the list of failed checks, `:hourglass_flowing_sand: CI running (8/15 done)`, `:large_green_circle: CI all green (15)` |
 | Release | `:rocket: Release` |
 
 - The cause of an update is determined from activity since you last read the thread (`last_read_at`)
+- Edits and PR state changes are checked only when no new comment, review, merge, close or reason explains the update. `Updated PR` remains for updates nothing explains
+- Your own comments, reviews, edits and state changes are not forwarded
 - Updates that arrive after an already forwarded merge or close (e.g. branch deletion) are not forwarded
 
 ## Setup

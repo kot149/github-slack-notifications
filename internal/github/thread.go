@@ -49,12 +49,17 @@ func (g *Client) threadEvent(ctx context.Context, n Notification, e *event.Event
 		f.Review = r
 	}
 
-	if f.Comment != nil || f.Review != nil {
-		me, err := g.viewer(ctx)
+	me, err := g.viewer(ctx)
+	if err != nil {
+		log.Printf("notification %s: user: %v", n.ID, err)
+	}
+	f.Me = me
+	f.Changes = func() []change {
+		c, err := g.changes(ctx, n, t.Number)
 		if err != nil {
-			log.Printf("notification %s: user: %v", n.ID, err)
+			log.Printf("notification %s: changes: %v", n.ID, err)
 		}
-		f.Me = me
+		return c
 	}
 
 	var url string

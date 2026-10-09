@@ -23,6 +23,8 @@ type threadFacts struct {
 	Comment   *activity
 	Review    *activity
 	Me        string // login of the token owner, whose own activity isn't forwarded
+	// Changes lists edits and other events, fetched only when nothing else explains the notification.
+	Changes func() []change
 }
 
 // eventWindow is how close an activity must be to the notification's updated_at to be its cause.
@@ -94,7 +96,11 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 		addBy(r, ":speech_balloon:", "New review comment by ")
 	}
 
-	if len(cands) > 0 {
+	// pick returns the highest-priority candidate among the latest ones, and false if there are none.
+	pick := func() (emoji, label, url string, ok bool) {
+		if len(cands) == 0 {
+			return "", "", "", false
+		}
 		latest := cands[0].at
 		for _, c := range cands {
 			if c.at.After(latest) {
@@ -103,10 +109,13 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 		}
 		for _, c := range cands {
 			if c.label != "" && !c.at.Before(latest.Add(-sameMoment)) {
-				return c.emoji, c.label, c.url
+				return c.emoji, c.label, c.url, true
 			}
 		}
-		return "", "", ""
+		return "", "", "", true
+	}
+	if emoji, label, url, ok := pick(); ok {
+		return emoji, label, url
 	}
 
 	switch n.Reason {
@@ -124,5 +133,44 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 	if isNew(n, f.CreatedAt) {
 		return ":sparkles:", "Opened " + noun, ""
 	}
+	if f.Changes != nil {
+		for _, c := range f.Changes() {
+			if emoji, label := changeLabel(c.Kind, noun); label != "" {
+				addBy(&c.activity, emoji, label)
+			}
+		}
+		if emoji, label, url, ok := pick(); ok {
+			return emoji, label, url
+		}
+	}
 	return ":arrows_counterclockwise:", "Updated " + noun, ""
+}
+
+// changeLabel returns the emoji and the label, to be followed by the actor, for a change kind.
+func changeLabel(kind, noun string) (emoji, label string) {
+	switch kind {
+	case editedDescription:
+		return ":pencil2:", "Edited " + noun + " description by "
+	case editedComment:
+		return ":pencil2:", "Edited comment by "
+	case editedReview:
+		return ":pencil2:", "Edited review by "
+	case editedReviewComment:
+		return ":pencil2:", "Edited review comment by "
+	case "RenamedTitleEvent":
+		return ":pencil2:", "Renamed " + noun + " by "
+	case "ReopenedEvent":
+		return ":recycle:", "Reopened " + noun + " by "
+	case "ReadyForReviewEvent":
+		return ":arrow_forward:", "Ready for review by "
+	case "ConvertToDraftEvent":
+		return ":construction:", "Converted to draft by "
+	case "HeadRefForcePushedEvent":
+		return ":arrow_up:", "Force-pushed by "
+	case "BaseRefChangedEvent":
+		return ":arrow_right_hook:", "Changed base branch by "
+	case "ReviewDismissedEvent":
+		return ":wastebasket:", "Review dismissed by "
+	}
+	return "", ""
 }

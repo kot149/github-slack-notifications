@@ -76,6 +76,43 @@ func TestClassifySkipsOwnActivity(t *testing.T) {
 	}
 }
 
+func TestClassifyChanges(t *testing.T) {
+	old := base.Add(-time.Hour)
+	edit := func(kind, author string, at time.Time) change {
+		return change{activity{Author: author, At: at, URL: "u"}, kind}
+	}
+	tests := []struct {
+		name    string
+		reason  string
+		changes []change
+		want    string
+	}{
+		{"description edit", "author", []change{edit(editedDescription, "alice", base)}, "Edited PR description by alice"},
+		{"review comment edit", "author", []change{edit(editedReviewComment, "bot[bot]", base)}, "Edited review comment by bot[bot]"},
+		{"latest change wins", "author", []change{
+			edit(editedComment, "alice", base.Add(-2*time.Minute)),
+			edit("HeadRefForcePushedEvent", "bob", base)}, "Force-pushed by bob"},
+		{"own change is dropped", "author", []change{edit(editedDescription, "me", base)}, ""},
+		{"stale change ignored", "author", []change{edit(editedComment, "alice", old)}, "Updated PR"},
+		{"unknown kind ignored", "author", []change{edit("LabeledEvent", "alice", base)}, "Updated PR"},
+		{"reason wins over change", "review_requested", []change{edit(editedComment, "alice", base)}, "Review requested"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := threadFacts{IsPR: true, CreatedAt: old, Me: "me", Changes: func() []change { return tt.changes }}
+			if _, got, _ := classify(notif(tt.reason), f); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+
+	t.Run("not fetched when a comment explains it", func(t *testing.T) {
+		f := threadFacts{IsPR: true, CreatedAt: old, Comment: &activity{Author: "dave", At: base},
+			Changes: func() []change { t.Error("changes fetched"); return nil }}
+		classify(notif("author"), f)
+	})
+}
+
 func TestClassifyUsesLastReadAt(t *testing.T) {
 	n := notif("comment")
 	n.LastReadAt = ptr(base.Add(-90 * time.Second))

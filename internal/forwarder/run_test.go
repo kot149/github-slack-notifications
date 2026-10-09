@@ -79,6 +79,10 @@ func (a *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusResetContent)
 	case strings.HasSuffix(r.URL.Path, "/reviews"):
 		w.Write([]byte("[]"))
+	case r.URL.Path == "/user":
+		w.Write([]byte(`{"login":"me"}`))
+	case r.URL.Path == "/graphql":
+		w.Write([]byte(`{"data":{"repository":{"issueOrPullRequest":{}}}}`))
 	case strings.HasPrefix(r.URL.Path, "/repos/o/r/pulls/"):
 		n := strings.TrimPrefix(r.URL.Path, "/repos/o/r/pulls/")
 		json.NewEncoder(w).Encode(map[string]any{

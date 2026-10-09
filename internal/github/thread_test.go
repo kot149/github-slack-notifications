@@ -2,11 +2,14 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLatestReviewReadsLastPage(t *testing.T) {
@@ -40,6 +43,57 @@ func TestLatestReviewNone(t *testing.T) {
 	a, err := New("token").latestReview(context.Background(), srv.URL+"/repos/o/r/pulls/1")
 	if err != nil || a != nil {
 		t.Errorf("got %+v, %v; want nil", a, err)
+	}
+}
+
+func TestChanges(t *testing.T) {
+	var vars map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables map[string]any `json:"variables"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		vars = body.Variables
+		fmt.Fprint(w, `{"data":{"repository":{"issueOrPullRequest":{
+			"url":"pr","lastEditedAt":"2026-01-01T00:00:00Z","editor":{"__typename":"User","login":"a"},
+			"comments":{"nodes":[{"url":"c1","lastEditedAt":null,"editor":null}]},
+			"reviews":{"nodes":[{"url":"r1","lastEditedAt":null,"editor":null,
+				"comments":{"nodes":[{"url":"rc1","lastEditedAt":"2026-01-02T00:00:00Z","editor":{"__typename":"Bot","login":"rabbit"}}]}}]},
+			"timelineItems":{"nodes":[{"__typename":"HeadRefForcePushedEvent","createdAt":"2026-01-03T00:00:00Z","actor":{"__typename":"User","login":"b"}}]}
+		}}}}`)
+	}))
+	defer srv.Close()
+	g := New("token")
+	g.BaseURL = srv.URL
+	n := Notification{UpdatedAt: time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)}
+	n.Repository.FullName = "o/r"
+
+	got, err := g.changes(context.Background(), n, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []change{
+		{activity{Author: "a", At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}, editedDescription},
+		{activity{Author: "rabbit[bot]", At: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), URL: "rc1"}, editedReviewComment},
+		{activity{Author: "b", At: time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)}, "HeadRefForcePushedEvent"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %+v\nwant %+v", got, want)
+	}
+	if vars["owner"] != "o" || vars["name"] != "r" || vars["number"] != float64(7) {
+		t.Errorf("variables: %v", vars)
+	}
+}
+
+func TestChangesGraphQLError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"data":null,"errors":[{"message":"boom"}]}`)
+	}))
+	defer srv.Close()
+	g := New("token")
+	g.BaseURL = srv.URL
+	if _, err := g.changes(context.Background(), Notification{}, 1); err == nil || !strings.Contains(err.Error(), "boom") {
+		t.Errorf("got %v, want graphql error", err)
 	}
 }
 

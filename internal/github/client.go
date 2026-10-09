@@ -1,6 +1,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,7 +36,11 @@ func New(token string) *Client {
 }
 
 func (g *Client) do(ctx context.Context, method, rawURL string, header http.Header, out any) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, rawURL, nil)
+	return g.send(ctx, method, rawURL, header, nil, out)
+}
+
+func (g *Client) send(ctx context.Context, method, rawURL string, header http.Header, body io.Reader, out any) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, body)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +74,27 @@ func (g *Client) do(ctx context.Context, method, rawURL string, header http.Head
 func (g *Client) get(ctx context.Context, rawURL string, out any) error {
 	_, err := g.do(ctx, http.MethodGet, rawURL, nil, out)
 	return err
+}
+
+// graphql runs a GraphQL query and decodes its data into out.
+func (g *Client) graphql(ctx context.Context, query string, vars map[string]any, out any) error {
+	body, err := json.Marshal(map[string]any{"query": query, "variables": vars})
+	if err != nil {
+		return err
+	}
+	var res struct {
+		Data   json.RawMessage `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if _, err := g.send(ctx, http.MethodPost, g.BaseURL+"/graphql", nil, bytes.NewReader(body), &res); err != nil {
+		return err
+	}
+	if len(res.Errors) > 0 {
+		return fmt.Errorf("graphql: %s", res.Errors[0].Message)
+	}
+	return json.Unmarshal(res.Data, out)
 }
 
 // linkRel extracts the URL for rel from an RFC 8288 Link header.

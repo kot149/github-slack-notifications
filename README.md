@@ -55,7 +55,7 @@ The first line links to the comment or review for comment and review events, and
    github-slack-notifications init
    ```
 
-   - `GITHUB_TOKEN`: a classic PAT with the `notifications` scope, authorized for your org's SSO
+   - `GITHUB_TOKEN`: a classic PAT with the `notifications` and `repo` scopes, authorized for your org's SSO. Without `repo`, notifications from private repositories are posted without details
    - `SLACK_TOKEN`: a token for a bot invited to the target channel. Changing `username` and the icon requires the `chat:write.customize` scope
    - `SLACK_CHANNEL`: the target channel ID or user ID (can also be set as `slack.channel` in `config.yml`)
 

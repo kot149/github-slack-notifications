@@ -23,7 +23,7 @@ type secret struct {
 }
 
 var secrets = []secret{
-	{"GITHUB_TOKEN", "GITHUB_TOKEN (classic PAT with the notifications scope)", true},
+	{"GITHUB_TOKEN", "GITHUB_TOKEN (classic PAT with the notifications and repo scopes)", true},
 	{"SLACK_TOKEN", "SLACK_TOKEN (bot token, xoxb-...)", true},
 	{"SLACK_CHANNEL", "SLACK_CHANNEL (channel or user ID)", false},
 }

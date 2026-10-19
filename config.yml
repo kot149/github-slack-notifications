@@ -15,6 +15,8 @@ sort_oldest_first: true
 rollup: true # one Slack message per check instead of one per notification
 ci_only_on_change: true # skip CI updates whose state (failed/running/all green) is unchanged for the PR
 ci_skip_running: true # don't forward CI while checks are still running
+ci_ignore_checks: # owner/repo: workflow or check run names left out of CI results
+  owner/repo: [Spell check, Label check]
 state_file: state.json
 
 slack:

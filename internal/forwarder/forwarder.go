@@ -42,9 +42,11 @@ type Forwarder struct {
 // New creates a Forwarder. With dryRun, messages are printed instead of posted and nothing is changed.
 // A positive lookback makes the first successful run fetch notifications updated within it instead of since the last run.
 func New(cfg *config.Config, dryRun bool, lookback time.Duration) *Forwarder {
+	gh := github.New(cfg.GitHubToken)
+	gh.IgnoreChecks = cfg.CIIgnoreChecks
 	return &Forwarder{
 		cfg:      cfg,
-		gh:       github.New(cfg.GitHubToken),
+		gh:       gh,
 		slack:    slack.New(cfg.SlackToken, slack.Options(cfg.Slack)),
 		dryRun:   dryRun,
 		lookback: lookback,

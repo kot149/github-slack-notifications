@@ -81,6 +81,41 @@ func TestCIEventIgnoresLongClosedPR(t *testing.T) {
 	}
 }
 
+func TestCIEventIgnoresChecks(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/o/r/pulls":
+			fmt.Fprint(w, `[{"html_url":"https://github.com/o/r/pull/1","number":1,"title":"T","user":{"login":"me"},"head":{"sha":"abc"}}]`)
+		case "/user":
+			fmt.Fprint(w, `{"login":"me"}`)
+		case "/repos/o/r/commits/abc/check-runs":
+			fmt.Fprint(w, `{"check_runs":[
+				{"name":"build","status":"completed","conclusion":"success","check_suite":{"id":1}},
+				{"name":"spell-check","status":"completed","conclusion":"failure","check_suite":{"id":2}},
+				{"name":"lint","status":"completed","conclusion":"failure","check_suite":{"id":3}}]}`)
+		case "/repos/o/r/actions/runs":
+			fmt.Fprint(w, `{"workflow_runs":[{"name":"CI","check_suite_id":1},{"name":"Spell check","check_suite_id":2},{"name":"Lint","check_suite_id":3}]}`)
+		default:
+			t.Errorf("unexpected request %s", r.URL)
+		}
+	}))
+	defer srv.Close()
+
+	g := New("token")
+	g.BaseURL = srv.URL
+	g.IgnoreChecks = map[string][]string{"O/R": {"spell check", "lint"}}
+	n := Notification{}
+	n.Subject.Title = "CI workflow run failed for feature/x branch"
+	n.Repository.FullName = "o/r"
+	var e event.Event
+	if err := g.ciEvent(context.Background(), n, &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Label != "CI all green (1)" {
+		t.Errorf("label = %q, want the ignored workflow and check run left out", e.Label)
+	}
+}
+
 func TestCIEventDropsOthersPR(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

@@ -17,6 +17,9 @@ type Client struct {
 	token   string
 	http    *http.Client
 	login   string // the token owner, cached by viewer
+
+	// IgnoreChecks maps owner/repo to workflow or check run names left out of CI results.
+	IgnoreChecks map[string][]string
 }
 
 // viewer returns the login of the token owner.

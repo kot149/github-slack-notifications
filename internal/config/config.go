@@ -23,13 +23,15 @@ type Config struct {
 		OnlyParticipating   bool     `yaml:"only_participating"`
 		OnlyUnread          bool     `yaml:"only_unread"`
 	} `yaml:"filter"`
-	MarkAsRead      bool   `yaml:"mark_as_read"`
-	SortOldestFirst bool   `yaml:"sort_oldest_first"`
-	Rollup          bool   `yaml:"rollup"`
-	CIOnlyOnChange  bool   `yaml:"ci_only_on_change"`
-	CISkipRunning   bool   `yaml:"ci_skip_running"`
-	StateFile       string `yaml:"state_file"`
-	Slack           Slack  `yaml:"slack"`
+	MarkAsRead      bool `yaml:"mark_as_read"`
+	SortOldestFirst bool `yaml:"sort_oldest_first"`
+	Rollup          bool `yaml:"rollup"`
+	CIOnlyOnChange  bool `yaml:"ci_only_on_change"`
+	CISkipRunning   bool `yaml:"ci_skip_running"`
+	// CIIgnoreChecks maps owner/repo to workflow or check run names left out of CI results.
+	CIIgnoreChecks map[string][]string `yaml:"ci_ignore_checks"`
+	StateFile      string              `yaml:"state_file"`
+	Slack          Slack               `yaml:"slack"`
 
 	GitHubToken string `yaml:"-"`
 	SlackToken  string `yaml:"-"`

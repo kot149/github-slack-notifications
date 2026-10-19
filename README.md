@@ -39,6 +39,7 @@ The first line links to the comment or review for comment and review events, and
 - Your own comments, reviews, edits and state changes are not forwarded
 - With `ci_only_on_change: true`, CI is forwarded only when a PR's state (failed / running / all green) differs from the last one posted for it
 - With `ci_skip_running: true`, `CI running` is not forwarded. With `ci_only_on_change`, a rerun or new push that ends with the same result as the last post is not forwarded either
+- `ci_ignore_checks` maps `owner/repo` to workflow names (e.g. `Spell check`) or check run names (e.g. `spell-check`) that are left out of the CI result and counts. Names are case-insensitive
 - Updates that arrive after an already forwarded merge or close (e.g. branch deletion) are not forwarded
 
 ## Setup

@@ -96,6 +96,8 @@ func TestClassifyChanges(t *testing.T) {
 		{"stale change ignored", "author", []change{edit(editedComment, "alice", old)}, "Updated PR"},
 		{"unknown kind ignored", "author", []change{edit("LabeledEvent", "alice", base)}, "Updated PR"},
 		{"reason wins over change", "review_requested", []change{edit(editedComment, "alice", base)}, "Review requested"},
+		{"own change with mention reason is dropped", "mention", []change{edit(editedDescription, "me", base)}, ""},
+		{"own change with review_requested reason is dropped", "review_requested", []change{edit("HeadRefForcePushedEvent", "me", base)}, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

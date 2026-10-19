@@ -118,6 +118,25 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 		return emoji, label, url
 	}
 
+	// pickChange is pick over edits and other changes. Call it at most once, since each call fetches them.
+	pickChange := func() (emoji, label, url string, ok bool) {
+		if f.Changes == nil {
+			return "", "", "", false
+		}
+		for _, c := range f.Changes() {
+			if emoji, label := changeLabel(c.Kind, noun); label != "" {
+				addBy(&c.activity, emoji, label)
+			}
+		}
+		return pick()
+	}
+	switch n.Reason {
+	case "review_requested", "assign", "mention", "team_mention":
+		// The reason sticks to the thread, so it also comes with later updates such as your own edits.
+		if _, label, _, ok := pickChange(); ok && label == "" {
+			return "", "", ""
+		}
+	}
 	switch n.Reason {
 	case "review_requested":
 		return ":eyes:", "Review requested", ""
@@ -133,15 +152,8 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 	if isNew(n, f.CreatedAt) {
 		return ":sparkles:", "Opened " + noun, ""
 	}
-	if f.Changes != nil {
-		for _, c := range f.Changes() {
-			if emoji, label := changeLabel(c.Kind, noun); label != "" {
-				addBy(&c.activity, emoji, label)
-			}
-		}
-		if emoji, label, url, ok := pick(); ok {
-			return emoji, label, url
-		}
+	if emoji, label, url, ok := pickChange(); ok {
+		return emoji, label, url
 	}
 	return ":arrows_counterclockwise:", "Updated " + noun, ""
 }

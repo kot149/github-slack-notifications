@@ -24,7 +24,7 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 	if m == nil {
 		return fmt.Errorf("unrecognized CI title %q", n.Subject.Title)
 	}
-	workflow, result, branch := m[1], m[2], m[3]
+	branch := m[3]
 	repo := n.Repository.FullName
 	owner, _, _ := strings.Cut(repo, "/")
 
@@ -32,6 +32,7 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 		HTMLURL  string     `json:"html_url"`
 		Number   int        `json:"number"`
 		Title    string     `json:"title"`
+		User     ghUser     `json:"user"`
 		ClosedAt *time.Time `json:"closed_at"`
 		Head     struct {
 			SHA string `json:"sha"`
@@ -46,13 +47,18 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 	if len(pulls) > 0 && pulls[0].ClosedAt != nil && pulls[0].ClosedAt.Before(n.UpdatedAt.Add(-closedPRWindow)) {
 		pulls = nil
 	}
+	// Only CI on your own PRs is forwarded; runs on other branches leave e.Label empty and are dropped.
 	if len(pulls) == 0 {
-		actions := n.Repository.HTMLURL + "/actions"
-		e.Emoji, e.Label, e.LabelURL = ciEmoji(result), fmt.Sprintf("CI %s: %s", result, workflow), actions
-		e.Subject = event.Link{URL: actions, Text: branch}
 		return nil
 	}
 	pr := pulls[0]
+	me, err := g.viewer(ctx)
+	if err != nil {
+		return err
+	}
+	if pr.User.Login != me {
+		return nil
+	}
 
 	type checkRun struct {
 		Name       string `json:"name"`
@@ -99,11 +105,4 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 	e.Subject = event.Link{URL: pr.HTMLURL, Text: fmt.Sprintf("#%d %s", pr.Number, pr.Title)}
 	e.GroupKey = "ci:" + pr.HTMLURL
 	return nil
-}
-
-func ciEmoji(result string) string {
-	if result == "succeeded" {
-		return ":large_green_circle:"
-	}
-	return ":red_circle:"
 }

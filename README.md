@@ -31,7 +31,7 @@ The first line links to the comment or review for comment and review events, and
 | Edit | `:pencil2: Edited PR description by X` / `:pencil2: Edited comment by X` / `:pencil2: Edited review by X` / `:pencil2: Edited review comment by X` / `:pencil2: Renamed PR by X` |
 | PR state | `:recycle: Reopened PR by X` / `:arrow_forward: Ready for review by X` / `:construction: Converted to draft by X` / `:arrow_up: Force-pushed by X` / `:arrow_right_hook: Changed base branch by X` / `:wastebasket: Review dismissed by X` |
 | Other | `:sparkles: Opened PR` / `:arrows_counterclockwise: Updated PR` |
-| CI | One item per PR. `:red_circle: CI failed (2/15)` with the list of failed checks, `:hourglass_flowing_sand: CI running (8/15 done)`, `:large_green_circle: CI all green (15)` |
+| CI | Only for PRs you opened, one item per PR. Needs `only_participating: false`, since GitHub doesn't count CI as participating. `:red_circle: CI failed (2/15)` with the list of failed checks, `:hourglass_flowing_sand: CI running (8/15 done)`, `:large_green_circle: CI all green (15)` |
 | Release | `:rocket: Release` |
 
 - The cause of an update is determined from activity since you last read the thread (`last_read_at`)

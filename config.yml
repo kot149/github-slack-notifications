@@ -7,7 +7,7 @@ filter:
   exclude_reasons: []
   include_repositories: [] # owner/repo; empty means all
   exclude_repositories: []
-  only_participating: true
+  only_participating: false # GitHub doesn't count ci_activity as participating
   only_unread: false
 
 mark_as_read: true

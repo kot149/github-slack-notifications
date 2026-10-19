@@ -26,7 +26,9 @@ func TestCIEventEscapesBranchAndFollowsPages(t *testing.T) {
 			if got := r.URL.Query().Get("head"); got != "o:fix/a&b" {
 				t.Errorf("head = %q", got)
 			}
-			fmt.Fprint(w, `[{"html_url":"https://github.com/o/r/pull/1","number":1,"title":"T","head":{"sha":"abc"}}]`)
+			fmt.Fprint(w, `[{"html_url":"https://github.com/o/r/pull/1","number":1,"title":"T","user":{"login":"me"},"head":{"sha":"abc"}}]`)
+		case "/user":
+			fmt.Fprint(w, `{"login":"me"}`)
 		case "/repos/o/r/commits/abc/check-runs":
 			if r.URL.Query().Get("page") == "" {
 				w.Header().Set("Link", fmt.Sprintf(`<%s%s?page=2>; rel="next"`, srv.URL, r.URL.Path))
@@ -74,7 +76,34 @@ func TestCIEventIgnoresLongClosedPR(t *testing.T) {
 	if err := g.ciEvent(context.Background(), n, &e); err != nil {
 		t.Fatal(err)
 	}
-	if e.Label != "CI failed: CI" || e.Subject.Text != "develop" {
-		t.Errorf("got label %q subject %q, want the branch event", e.Label, e.Subject.Text)
+	if e.Label != "" {
+		t.Errorf("label = %q, want the run dropped", e.Label)
+	}
+}
+
+func TestCIEventDropsOthersPR(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/o/r/pulls":
+			fmt.Fprint(w, `[{"html_url":"https://github.com/o/r/pull/1","number":1,"title":"T","user":{"login":"alice"},"head":{"sha":"abc"}}]`)
+		case "/user":
+			fmt.Fprint(w, `{"login":"me"}`)
+		default:
+			t.Errorf("unexpected request %s", r.URL)
+		}
+	}))
+	defer srv.Close()
+
+	g := New("token")
+	g.BaseURL = srv.URL
+	n := Notification{}
+	n.Subject.Title = "CI workflow run failed for feature/x branch"
+	n.Repository.FullName = "o/r"
+	var e event.Event
+	if err := g.ciEvent(context.Background(), n, &e); err != nil {
+		t.Fatal(err)
+	}
+	if e.Label != "" {
+		t.Errorf("label = %q, want the run dropped", e.Label)
 	}
 }

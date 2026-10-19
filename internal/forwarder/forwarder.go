@@ -91,6 +91,9 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 		}
 	}
 
+	if st.Statuses == nil {
+		st.Statuses = map[string]string{}
+	}
 	if f.dryRun {
 		log.Printf("dry run: %d fetched since %s, %d after filters", len(res.Notifications), since.Format(time.RFC3339), len(targets))
 		for _, msg := range slack.Messages(f.changedEvents(f.buildEvents(ctx, targets), st.Statuses), f.cfg.Rollup) {
@@ -106,9 +109,6 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 		}
 		if st.Seen == nil {
 			st.Seen = map[string]time.Time{}
-		}
-		if st.Statuses == nil {
-			st.Statuses = map[string]string{}
 		}
 		events := f.changedEvents(f.buildEvents(ctx, targets), st.Statuses)
 		eventOf := map[string]event.Event{}
@@ -229,13 +229,16 @@ func containsFold(list []string, s string) bool {
 	return slices.ContainsFunc(list, func(v string) bool { return strings.EqualFold(v, s) })
 }
 
-// changedEvents drops events whose status is the one last posted for their group, when ci_only_on_change is set.
+// changedEvents drops running CI when ci_skip_running is set, and events whose status is the one last
+// posted for their group when ci_only_on_change is set. A skipped running status is still recorded,
+// so that the result of the new run counts as a change.
 func (f *Forwarder) changedEvents(events []event.Event, statuses map[string]string) []event.Event {
-	if !f.cfg.CIOnlyOnChange {
-		return events
-	}
 	return slices.DeleteFunc(events, func(e event.Event) bool {
-		return e.Status != "" && statuses[e.GroupKey] == e.Status
+		if f.cfg.CISkipRunning && e.Status == "running" {
+			statuses[e.GroupKey] = e.Status
+			return true
+		}
+		return f.cfg.CIOnlyOnChange && e.Status != "" && statuses[e.GroupKey] == e.Status
 	})
 }
 

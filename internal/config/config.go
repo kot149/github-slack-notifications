@@ -27,7 +27,8 @@ type Config struct {
 	SortOldestFirst bool   `yaml:"sort_oldest_first"`
 	Rollup          bool   `yaml:"rollup"`
 	CIOnlyOnChange  bool   `yaml:"ci_only_on_change"`
-	StateFile      string `yaml:"state_file"`
+	CISkipRunning   bool   `yaml:"ci_skip_running"`
+	StateFile       string `yaml:"state_file"`
 	Slack           Slack  `yaml:"slack"`
 
 	GitHubToken string `yaml:"-"`

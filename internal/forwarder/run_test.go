@@ -101,7 +101,11 @@ func (a *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/repos/o/r/pulls":
 		w.Write([]byte(`[{"html_url":"https://github.com/o/r/pull/9","number":9,"title":"T","user":{"login":"me"},"head":{"sha":"abc"}}]`))
 	case r.URL.Path == "/repos/o/r/commits/abc/check-runs":
-		fmt.Fprintf(w, `{"check_runs":[{"name":"build","status":"completed","conclusion":%q}]}`, a.ciConclusion)
+		status := "completed"
+		if a.ciConclusion == "" {
+			status = "in_progress"
+		}
+		fmt.Fprintf(w, `{"check_runs":[{"name":"build","status":%q,"conclusion":%q}]}`, status, a.ciConclusion)
 	case strings.HasPrefix(r.URL.Path, "/repos/o/r/pulls/"):
 		n := strings.TrimPrefix(r.URL.Path, "/repos/o/r/pulls/")
 		json.NewEncoder(w).Encode(map[string]any{
@@ -181,6 +185,28 @@ func TestRunCIOnlyOnChange(t *testing.T) {
 	}
 	if !slices.Contains(a.marked, "c2") {
 		t.Errorf("marked = %q, want the unchanged c2 marked as read", a.marked)
+	}
+}
+
+func TestRunCISkipRunning(t *testing.T) {
+	a := newFakeAPI(t)
+	f := newTestForwarder(t, a, true)
+	f.cfg.CIOnlyOnChange = true
+	f.cfg.CISkipRunning = true
+	run := func(id, conclusion string) {
+		t.Helper()
+		a.ciConclusion = conclusion
+		a.addCI(id, time.Now())
+		if _, err := f.Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	run("c1", "success")
+	run("c2", "")
+	run("c3", "success")
+	if len(a.posts) != 2 || !strings.Contains(a.posts[0], "CI all green") || !strings.Contains(a.posts[1], "CI all green") {
+		t.Errorf("posts = %q, want CI all green twice without CI running", a.posts)
 	}
 }
 

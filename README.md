@@ -38,6 +38,7 @@ The first line links to the comment or review for comment and review events, and
 - Edits and PR state changes are checked only when no new comment, review, merge, close or reason explains the update. `Updated PR` remains for updates nothing explains
 - Your own comments, reviews, edits and state changes are not forwarded
 - With `ci_only_on_change: true`, CI is forwarded only when a PR's state (failed / running / all green) differs from the last one posted for it
+- With `ci_skip_running: true`, `CI running` is not forwarded. With `ci_only_on_change`, the next result still counts as a change, so green after green is forwarded when a run happened in between
 - Updates that arrive after an already forwarded merge or close (e.g. branch deletion) are not forwarded
 
 ## Setup

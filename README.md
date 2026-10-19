@@ -37,6 +37,7 @@ The first line links to the comment or review for comment and review events, and
 - The cause of an update is determined from activity since you last read the thread (`last_read_at`)
 - Edits and PR state changes are checked only when no new comment, review, merge, close or reason explains the update. `Updated PR` remains for updates nothing explains
 - Your own comments, reviews, edits and state changes are not forwarded
+- With `ci_only_on_change: true`, CI is forwarded only when a PR's state (failed / running / all green) differs from the last one posted for it
 - Updates that arrive after an already forwarded merge or close (e.g. branch deletion) are not forwarded
 
 ## Setup

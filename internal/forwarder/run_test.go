@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -31,6 +32,8 @@ type fakeAPI struct {
 	notModified bool
 	// failFetch answers 401 to notification fetches.
 	failFetch bool
+	// ciConclusion is the conclusion of the single check run on PR 9.
+	ciConclusion string
 }
 
 func newFakeAPI(t *testing.T) *fakeAPI {
@@ -52,6 +55,18 @@ func (a *fakeAPI) addPR(number int, updatedAt time.Time) {
 			"url":   fmt.Sprintf("%s/repos/o/r/pulls/%d", a.srv.URL, number),
 			"type":  "PullRequest",
 		},
+		"repository": map[string]any{"full_name": "o/r", "html_url": "https://github.com/o/r"},
+	})
+}
+
+// addCI adds an unread CI notification for branch b, whose PR 9 is opened by "me".
+func (a *fakeAPI) addCI(id string, updatedAt time.Time) {
+	a.notifications = append(a.notifications, map[string]any{
+		"id":         id,
+		"reason":     "ci_activity",
+		"unread":     true,
+		"updated_at": updatedAt.UTC().Format(time.RFC3339),
+		"subject":    map[string]any{"title": "CI workflow run completed for b branch", "type": "CheckSuite"},
 		"repository": map[string]any{"full_name": "o/r", "html_url": "https://github.com/o/r"},
 	})
 }
@@ -83,6 +98,10 @@ func (a *fakeAPI) serve(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"login":"me"}`))
 	case r.URL.Path == "/graphql":
 		w.Write([]byte(`{"data":{"repository":{"issueOrPullRequest":{}}}}`))
+	case r.URL.Path == "/repos/o/r/pulls":
+		w.Write([]byte(`[{"html_url":"https://github.com/o/r/pull/9","number":9,"title":"T","user":{"login":"me"},"head":{"sha":"abc"}}]`))
+	case r.URL.Path == "/repos/o/r/commits/abc/check-runs":
+		fmt.Fprintf(w, `{"check_runs":[{"name":"build","status":"completed","conclusion":%q}]}`, a.ciConclusion)
 	case strings.HasPrefix(r.URL.Path, "/repos/o/r/pulls/"):
 		n := strings.TrimPrefix(r.URL.Path, "/repos/o/r/pulls/")
 		json.NewEncoder(w).Encode(map[string]any{
@@ -138,6 +157,30 @@ func TestRunForwardsOnceAndSavesState(t *testing.T) {
 	}
 	if st.Since.IsZero() || st.LastModified == "" || len(st.Seen) != 1 {
 		t.Errorf("state not saved: %+v", st)
+	}
+}
+
+func TestRunCIOnlyOnChange(t *testing.T) {
+	a := newFakeAPI(t)
+	f := newTestForwarder(t, a, true)
+	f.cfg.CIOnlyOnChange = true
+	run := func(id, conclusion string) {
+		t.Helper()
+		a.ciConclusion = conclusion
+		a.addCI(id, time.Now())
+		if _, err := f.Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	run("c1", "failure")
+	run("c2", "failure")
+	run("c3", "success")
+	if len(a.posts) != 2 || !strings.Contains(a.posts[0], "CI failed") || !strings.Contains(a.posts[1], "CI all green") {
+		t.Errorf("posts = %q, want CI failed then CI all green", a.posts)
+	}
+	if !slices.Contains(a.marked, "c2") {
+		t.Errorf("marked = %q, want the unchanged c2 marked as read", a.marked)
 	}
 }
 

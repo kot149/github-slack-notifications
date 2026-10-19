@@ -26,7 +26,8 @@ type Config struct {
 	MarkAsRead      bool   `yaml:"mark_as_read"`
 	SortOldestFirst bool   `yaml:"sort_oldest_first"`
 	Rollup          bool   `yaml:"rollup"`
-	StateFile       string `yaml:"state_file"`
+	CIOnlyOnChange  bool   `yaml:"ci_only_on_change"`
+	StateFile      string `yaml:"state_file"`
 	Slack           Slack  `yaml:"slack"`
 
 	GitHubToken string `yaml:"-"`

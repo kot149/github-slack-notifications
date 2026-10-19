@@ -93,7 +93,7 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 
 	if f.dryRun {
 		log.Printf("dry run: %d fetched since %s, %d after filters", len(res.Notifications), since.Format(time.RFC3339), len(targets))
-		for _, msg := range slack.Messages(f.buildEvents(ctx, targets), f.cfg.Rollup) {
+		for _, msg := range slack.Messages(f.changedEvents(f.buildEvents(ctx, targets), st.Statuses), f.cfg.Rollup) {
 			os.Stdout.WriteString(msg.Text + "\n\n")
 		}
 		return 0, nil
@@ -107,10 +107,20 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 		if st.Seen == nil {
 			st.Seen = map[string]time.Time{}
 		}
+		if st.Statuses == nil {
+			st.Statuses = map[string]string{}
+		}
+		events := f.changedEvents(f.buildEvents(ctx, targets), st.Statuses)
+		eventOf := map[string]event.Event{}
+		for _, e := range events {
+			for _, id := range e.SourceIDs {
+				eventOf[id] = e
+			}
+		}
 		posted := map[string]bool{}
 		// A retry must refetch the unposted rest instead of getting 304 for an inbox that hasn't changed.
 		st.LastModified = ""
-		for _, msg := range slack.Messages(f.buildEvents(ctx, targets), f.cfg.Rollup) {
+		for _, msg := range slack.Messages(events, f.cfg.Rollup) {
 			if err := f.slack.Post(ctx, msg.Text); err != nil {
 				return retryWait, err
 			}
@@ -118,6 +128,9 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 			for _, id := range msg.SourceIDs {
 				st.Seen[id] = updatedAt[id]
 				posted[id] = true
+				if e := eventOf[id]; e.Status != "" {
+					st.Statuses[e.GroupKey] = e.Status
+				}
 			}
 			if err := state.Save(f.cfg.StateFile, st); err != nil {
 				return retryWait, err
@@ -126,7 +139,7 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 		}
 		log.Printf("forwarded %d notifications", len(posted))
 
-		// Notifications that produced no event, e.g. updates after an already forwarded merge.
+		// Notifications that produced no event, e.g. updates after an already forwarded merge or unchanged CI.
 		var dropped []string
 		for _, n := range targets {
 			if !posted[n.ID] {
@@ -136,7 +149,7 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 		f.markAsRead(ctx, dropped)
 	}
 
-	st = state.State{Since: res.ServerTime, LastModified: res.LastModified, Seen: seen}
+	st = state.State{Since: res.ServerTime, LastModified: res.LastModified, Seen: seen, Statuses: st.Statuses}
 	if err := state.Save(f.cfg.StateFile, st); err != nil {
 		return retryWait, err
 	}
@@ -214,6 +227,16 @@ func (f *Forwarder) keep(n github.Notification) bool {
 
 func containsFold(list []string, s string) bool {
 	return slices.ContainsFunc(list, func(v string) bool { return strings.EqualFold(v, s) })
+}
+
+// changedEvents drops events whose status is the one last posted for their group, when ci_only_on_change is set.
+func (f *Forwarder) changedEvents(events []event.Event, statuses map[string]string) []event.Event {
+	if !f.cfg.CIOnlyOnChange {
+		return events
+	}
+	return slices.DeleteFunc(events, func(e event.Event) bool {
+		return e.Status != "" && statuses[e.GroupKey] == e.Status
+	})
 }
 
 // buildEvents turns notifications into events in display order, merging those with the same GroupKey.

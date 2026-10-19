@@ -13,6 +13,8 @@ type State struct {
 	LastModified string    `json:"last_modified,omitempty"`
 	// Seen maps thread IDs to the updated_at already handled, so the overlapping fetch window doesn't resend them.
 	Seen map[string]time.Time `json:"seen,omitempty"`
+	// Statuses maps group keys to the status last posted for them.
+	Statuses map[string]string `json:"statuses,omitempty"`
 }
 
 func Load(path string) (State, error) {

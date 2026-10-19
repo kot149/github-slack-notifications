@@ -230,12 +230,11 @@ func containsFold(list []string, s string) bool {
 }
 
 // changedEvents drops running CI when ci_skip_running is set, and events whose status is the one last
-// posted for their group when ci_only_on_change is set. A skipped running status is still recorded,
-// so that the result of the new run counts as a change.
+// posted for their group when ci_only_on_change is set. A skipped running status is not recorded,
+// so a rerun that ends with the same result as before is not posted again.
 func (f *Forwarder) changedEvents(events []event.Event, statuses map[string]string) []event.Event {
 	return slices.DeleteFunc(events, func(e event.Event) bool {
 		if f.cfg.CISkipRunning && e.Status == "running" {
-			statuses[e.GroupKey] = e.Status
 			return true
 		}
 		return f.cfg.CIOnlyOnChange && e.Status != "" && statuses[e.GroupKey] == e.Status

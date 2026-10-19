@@ -205,8 +205,10 @@ func TestRunCISkipRunning(t *testing.T) {
 	run("c1", "success")
 	run("c2", "")
 	run("c3", "success")
-	if len(a.posts) != 2 || !strings.Contains(a.posts[0], "CI all green") || !strings.Contains(a.posts[1], "CI all green") {
-		t.Errorf("posts = %q, want CI all green twice without CI running", a.posts)
+	run("c4", "")
+	run("c5", "failure")
+	if len(a.posts) != 2 || !strings.Contains(a.posts[0], "CI all green") || !strings.Contains(a.posts[1], "CI failed") {
+		t.Errorf("posts = %q, want CI all green then CI failed, without CI running or a repeated CI all green", a.posts)
 	}
 }
 

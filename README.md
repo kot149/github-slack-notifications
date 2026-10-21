@@ -52,7 +52,7 @@ The first line links to the comment or review for comment and review events, and
 
    Or clone this repository and run `go build -o github-slack-notifications .`
 
-2. Run `init`, which places [config.yml](config.yml) and asks for the values below to save in `.env.local` next to it (tokens are typed without echo)
+2. Run `init`, which places `config.yml` (from [config.example.yml](config.example.yml)) and asks for the values below to save in `.env.local` next to it (tokens are typed without echo)
 
    ```sh
    github-slack-notifications init

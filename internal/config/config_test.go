@@ -40,7 +40,7 @@ func TestLoadRejectsUnknownMuteEvents(t *testing.T) {
 
 func TestLoadBundledConfig(t *testing.T) {
 	setTokens(t)
-	if _, err := Load("../../config.yml"); err != nil {
+	if _, err := Load("../../config.example.yml"); err != nil {
 		t.Fatal(err)
 	}
 }

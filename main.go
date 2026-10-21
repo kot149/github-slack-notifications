@@ -16,7 +16,7 @@ import (
 	"github.com/kot149/github-slack-notifications/internal/setup"
 )
 
-//go:embed config.yml
+//go:embed config.example.yml
 var configTemplate []byte
 
 func main() {

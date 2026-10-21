@@ -28,7 +28,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestSetKeepsLayout(t *testing.T) {
-	src, err := os.ReadFile("../../config.yml")
+	src, err := os.ReadFile("../../config.example.yml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestSetKeepsLayout(t *testing.T) {
 		}
 		want := strings.Replace(string(src), c.oldLine, c.newLine, 1)
 		if want == string(src) {
-			t.Fatalf("test line %q not found in config.yml", c.oldLine)
+			t.Fatalf("test line %q not found in config.example.yml", c.oldLine)
 		}
 		if string(out) != want {
 			t.Errorf("set %s=%s:\n%s", c.key, c.value, out)

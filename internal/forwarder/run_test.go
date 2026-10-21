@@ -188,11 +188,11 @@ func TestRunCIOnlyOnChange(t *testing.T) {
 	}
 }
 
-func TestRunCISkipRunning(t *testing.T) {
+func TestRunMuteCIRunning(t *testing.T) {
 	a := newFakeAPI(t)
 	f := newTestForwarder(t, a, true)
 	f.cfg.CIOnlyOnChange = true
-	f.cfg.CISkipRunning = true
+	f.gh.Mute = []string{"ci_running"}
 	run := func(id, conclusion string) {
 		t.Helper()
 		a.ciConclusion = conclusion

@@ -7,14 +7,14 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	cfg, err := ParseBytes("config.yml", []byte("filter:\n  include_repositories: [o/a, o/b]\nslack:\n  channel: C1\n"))
+	cfg, err := ParseBytes("config.yml", []byte("mute:\n  repositories: [o/a, o/b]\nslack:\n  channel: C1\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for key, want := range map[string]string{
-		"filter.only_unread":          "true",
-		"slack.channel":               "C1",
-		"filter.include_repositories": "- o/a\n- o/b",
+		"filter.only_unread": "true",
+		"slack.channel":      "C1",
+		"mute.repositories":  "- o/a\n- o/b",
 	} {
 		if got, err := Get(cfg, key); err != nil || got != want {
 			t.Errorf("Get(%q) = %q, %v; want %q", key, got, err, want)
@@ -34,7 +34,7 @@ func TestSetKeepsLayout(t *testing.T) {
 	}
 	cases := []struct{ key, value, oldLine, newLine string }{
 		{"rollup", "false", "rollup: true # one Slack", "rollup: false # one Slack"},
-		{"filter.include_repositories", "[o/r, o/s]", "  include_repositories: [] # owner/repo", "  include_repositories: [o/r, o/s] # owner/repo"},
+		{"mute.repositories", "[o/r, o/s]", "  repositories: [] # owner/repo", "  repositories: [o/r, o/s] # owner/repo"},
 		{"slack.channel", "C0123", `  channel: "" # channel`, "  channel: C0123 # channel"},
 		{"slack.username", "", "  username: GitHub", `  username: ""`},
 	}

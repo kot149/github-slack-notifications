@@ -112,12 +112,15 @@ func (g *Client) ciEvent(ctx context.Context, n Notification, e *event.Event) er
 		e.Emoji, e.Label = ":red_circle:", fmt.Sprintf("CI failed (%d/%d)", len(failed), total)
 		e.Details = failed
 		e.Status = "failed"
+		g.mute(e, "ci_failed")
 	case pending > 0:
 		e.Emoji, e.Label = ":hourglass_flowing_sand:", fmt.Sprintf("CI running (%d/%d done)", total-pending, total)
 		e.Status = "running"
+		g.mute(e, "ci_running")
 	default:
 		e.Emoji, e.Label = ":large_green_circle:", fmt.Sprintf("CI all green (%d)", total)
 		e.Status = "green"
+		g.mute(e, "ci_all_green")
 	}
 	e.LabelURL = pr.HTMLURL + "/checks"
 	e.Subject = event.Link{URL: pr.HTMLURL, Text: fmt.Sprintf("#%d %s", pr.Number, pr.Title)}

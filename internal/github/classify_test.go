@@ -1,6 +1,7 @@
 package github
 
 import (
+	"slices"
 	"testing"
 	"time"
 )
@@ -8,6 +9,10 @@ import (
 var base = time.Date(2026, 10, 7, 8, 0, 0, 0, time.UTC)
 
 func ptr[T any](v T) *T { return &v }
+
+func mute(kinds ...string) func(string) bool {
+	return func(k string) bool { return slices.Contains(kinds, k) }
+}
 
 func notif(reason string) Notification {
 	n := Notification{Reason: reason, UpdatedAt: base}
@@ -24,6 +29,11 @@ func TestClassify(t *testing.T) {
 		want   string
 	}{
 		{"merged", "author", threadFacts{IsPR: true, CreatedAt: old, MergedAt: ptr(base)}, "Merged PR"},
+		{"muted merge", "author", threadFacts{IsPR: true, CreatedAt: old, MergedAt: ptr(base), Muted: mute("merged")}, ""},
+		{"muted merge with review_requested", "review_requested", threadFacts{IsPR: true, CreatedAt: old, MergedAt: ptr(base), Muted: mute("merged")}, ""},
+		{"comment with muted merge", "comment", threadFacts{IsPR: true, CreatedAt: old, MergedAt: ptr(base), Muted: mute("merged"), Comment: &activity{Author: "dave", At: base}}, "New comment by dave"},
+		{"muted review request", "review_requested", threadFacts{IsPR: true, CreatedAt: base, Muted: mute("review_requested")}, ""},
+		{"muted update", "author", threadFacts{IsPR: true, CreatedAt: old, Muted: mute("updated")}, ""},
 		{"closed issue", "author", threadFacts{CreatedAt: old, ClosedAt: ptr(base)}, "Closed issue"},
 		{"approved", "author", threadFacts{IsPR: true, CreatedAt: old, Review: &activity{Author: "alice", At: base, State: "APPROVED"}}, "Approved by alice"},
 		{"changes requested", "author", threadFacts{IsPR: true, CreatedAt: old, Review: &activity{Author: "bob", At: base, State: "CHANGES_REQUESTED"}}, "Changes requested by bob"},
@@ -107,6 +117,14 @@ func TestClassifyChanges(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("muted change is dropped", func(t *testing.T) {
+		f := threadFacts{IsPR: true, CreatedAt: old, Muted: mute("edited"),
+			Changes: func() []change { return []change{edit(editedComment, "alice", base)} }}
+		if _, got, _ := classify(notif("author"), f); got != "" {
+			t.Errorf("got %q, want empty", got)
+		}
+	})
 
 	t.Run("not fetched when a comment explains it", func(t *testing.T) {
 		f := threadFacts{IsPR: true, CreatedAt: old, Comment: &activity{Author: "dave", At: base},

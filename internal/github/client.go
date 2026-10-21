@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
@@ -20,7 +21,11 @@ type Client struct {
 
 	// IgnoreChecks maps owner/repo to workflow or check run names left out of CI results.
 	IgnoreChecks map[string][]string
+	// Mute lists event kinds (event.Kinds) that are not forwarded.
+	Mute []string
 }
+
+func (g *Client) muted(kind string) bool { return slices.Contains(g.Mute, kind) }
 
 // viewer returns the login of the token owner.
 func (g *Client) viewer(ctx context.Context) (string, error) {

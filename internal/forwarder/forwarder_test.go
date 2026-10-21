@@ -10,7 +10,7 @@ import (
 func TestKeep(t *testing.T) {
 	f := &Forwarder{cfg: &config.Config{}}
 	f.cfg.Filter.IncludeReasons = []string{"comment", "mention"}
-	f.cfg.Filter.ExcludeRepositories = []string{"o/Skip"}
+	f.cfg.Mute.Repositories = []string{"o/Skip"}
 
 	n := github.Notification{Reason: "comment"}
 	n.Repository.FullName = "o/r"
@@ -24,6 +24,6 @@ func TestKeep(t *testing.T) {
 	n.Reason = "comment"
 	n.Repository.FullName = "o/skip"
 	if f.keep(n) {
-		t.Error("excluded repository should be dropped regardless of case")
+		t.Error("muted repository should be dropped regardless of case")
 	}
 }

@@ -23,6 +23,8 @@ type threadFacts struct {
 	Comment   *activity
 	Review    *activity
 	Me        string // login of the token owner, whose own activity isn't forwarded
+	// Muted reports whether an event kind (event.Kinds) is muted. A muted activity is dropped like own activity.
+	Muted func(kind string) bool
 	// Changes lists edits and other events, fetched only when nothing else explains the notification.
 	Changes func() []change
 }
@@ -57,43 +59,56 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 		at                time.Time
 		emoji, label, url string
 	}
+	muted := func(kind string) bool { return f.Muted != nil && f.Muted(kind) }
+	// result returns emoji and label unless kind is muted.
+	result := func(kind, emoji, label string) (string, string, string) {
+		if muted(kind) {
+			return "", "", ""
+		}
+		return emoji, label, ""
+	}
+
 	// Listed by priority, used when several activities happened at the same moment.
 	var cands []candidate
-	add := func(at *time.Time, emoji, label, url string) {
-		if at != nil && isNew(n, *at) {
-			cands = append(cands, candidate{*at, emoji, label, url})
+	add := func(at *time.Time, kind, emoji, label, url string) {
+		if at == nil || !isNew(n, *at) {
+			return
 		}
+		if muted(kind) {
+			emoji, label, url = "", "", ""
+		}
+		cands = append(cands, candidate{*at, emoji, label, url})
 	}
 	// Own activity takes part only to be dropped if it's the latest update.
 	own := func(a *activity) bool { return f.Me != "" && strings.EqualFold(a.Author, f.Me) }
-	addBy := func(a *activity, emoji, label string) {
+	addBy := func(a *activity, kind, emoji, label string) {
 		if own(a) {
-			add(&a.At, "", "", "")
+			add(&a.At, kind, "", "", "")
 		} else {
-			add(&a.At, emoji, label+a.Author, a.URL)
+			add(&a.At, kind, emoji, label+a.Author, a.URL)
 		}
 	}
-	add(f.MergedAt, ":twisted_rightwards_arrows:", "Merged PR", "")
-	add(f.ClosedAt, ":no_entry_sign:", "Closed "+noun, "")
+	add(f.MergedAt, "merged", ":twisted_rightwards_arrows:", "Merged PR", "")
+	add(f.ClosedAt, "closed", ":no_entry_sign:", "Closed "+noun, "")
 	if r := f.Review; r != nil {
 		switch r.State {
 		case "APPROVED":
-			addBy(r, ":white_check_mark:", "Approved by ")
+			addBy(r, "approved", ":white_check_mark:", "Approved by ")
 		case "CHANGES_REQUESTED":
-			addBy(r, ":warning:", "Changes requested by ")
+			addBy(r, "changes_requested", ":warning:", "Changes requested by ")
 		}
 	}
 	if c := f.Comment; c != nil {
 		if c.Reply {
-			addBy(c, ":speech_balloon:", "New reply to review comment by ")
+			addBy(c, "review_reply", ":speech_balloon:", "New reply to review comment by ")
 		} else if c.Inline {
-			addBy(c, ":speech_balloon:", "New review comment by ")
+			addBy(c, "review_comment", ":speech_balloon:", "New review comment by ")
 		} else {
-			addBy(c, ":speech_balloon:", "New comment by ")
+			addBy(c, "comment", ":speech_balloon:", "New comment by ")
 		}
 	}
 	if r := f.Review; r != nil && r.State != "APPROVED" && r.State != "CHANGES_REQUESTED" {
-		addBy(r, ":speech_balloon:", "New review comment by ")
+		addBy(r, "review_comment", ":speech_balloon:", "New review comment by ")
 	}
 
 	// pick returns the highest-priority candidate among the latest ones, and false if there are none.
@@ -124,8 +139,8 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 			return "", "", "", false
 		}
 		for _, c := range f.Changes() {
-			if emoji, label := changeLabel(c.Kind, noun); label != "" {
-				addBy(&c.activity, emoji, label)
+			if kind, emoji, label := changeLabel(c.Kind, noun); label != "" {
+				addBy(&c.activity, kind, emoji, label)
 			}
 		}
 		return pick()
@@ -139,50 +154,50 @@ func classify(n Notification, f threadFacts) (emoji, label, url string) {
 	}
 	switch n.Reason {
 	case "review_requested":
-		return ":eyes:", "Review requested", ""
+		return result("review_requested", ":eyes:", "Review requested")
 	case "assign":
-		return ":point_right:", "Assigned to " + noun, ""
+		return result("assigned", ":point_right:", "Assigned to "+noun)
 	case "mention", "team_mention":
-		return ":mega:", "Mentioned in " + noun, ""
+		return result("mentioned", ":mega:", "Mentioned in "+noun)
 	}
 	if f.MergedAt != nil || f.ClosedAt != nil {
 		// e.g. the head branch was deleted after the merge that was already forwarded
 		return "", "", ""
 	}
 	if isNew(n, f.CreatedAt) {
-		return ":sparkles:", "Opened " + noun, ""
+		return result("opened", ":sparkles:", "Opened "+noun)
 	}
 	if emoji, label, url, ok := pickChange(); ok {
 		return emoji, label, url
 	}
-	return ":arrows_counterclockwise:", "Updated " + noun, ""
+	return result("updated", ":arrows_counterclockwise:", "Updated "+noun)
 }
 
-// changeLabel returns the emoji and the label, to be followed by the actor, for a change kind.
-func changeLabel(kind, noun string) (emoji, label string) {
-	switch kind {
+// changeLabel returns the event kind, the emoji and the label, to be followed by the actor, for a change kind.
+func changeLabel(change, noun string) (kind, emoji, label string) {
+	switch change {
 	case editedDescription:
-		return ":pencil2:", "Edited " + noun + " description by "
+		return "edited", ":pencil2:", "Edited " + noun + " description by "
 	case editedComment:
-		return ":pencil2:", "Edited comment by "
+		return "edited", ":pencil2:", "Edited comment by "
 	case editedReview:
-		return ":pencil2:", "Edited review by "
+		return "edited", ":pencil2:", "Edited review by "
 	case editedReviewComment:
-		return ":pencil2:", "Edited review comment by "
+		return "edited", ":pencil2:", "Edited review comment by "
 	case "RenamedTitleEvent":
-		return ":pencil2:", "Renamed " + noun + " by "
+		return "renamed", ":pencil2:", "Renamed " + noun + " by "
 	case "ReopenedEvent":
-		return ":recycle:", "Reopened " + noun + " by "
+		return "reopened", ":recycle:", "Reopened " + noun + " by "
 	case "ReadyForReviewEvent":
-		return ":arrow_forward:", "Ready for review by "
+		return "ready_for_review", ":arrow_forward:", "Ready for review by "
 	case "ConvertToDraftEvent":
-		return ":construction:", "Converted to draft by "
+		return "converted_to_draft", ":construction:", "Converted to draft by "
 	case "HeadRefForcePushedEvent":
-		return ":arrow_up:", "Force-pushed by "
+		return "force_pushed", ":arrow_up:", "Force-pushed by "
 	case "BaseRefChangedEvent":
-		return ":arrow_right_hook:", "Changed base branch by "
+		return "base_changed", ":arrow_right_hook:", "Changed base branch by "
 	case "ReviewDismissedEvent":
-		return ":wastebasket:", "Review dismissed by "
+		return "review_dismissed", ":wastebasket:", "Review dismissed by "
 	}
-	return "", ""
+	return "", "", ""
 }

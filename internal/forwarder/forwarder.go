@@ -44,6 +44,7 @@ type Forwarder struct {
 func New(cfg *config.Config, dryRun bool, lookback time.Duration) *Forwarder {
 	gh := github.New(cfg.GitHubToken)
 	gh.IgnoreChecks = cfg.CIIgnoreChecks
+	gh.Mute = cfg.Mute.Events
 	return &Forwarder{
 		cfg:      cfg,
 		gh:       gh,
@@ -217,11 +218,9 @@ func (f *Forwarder) keep(n github.Notification) bool {
 	switch {
 	case len(flt.IncludeReasons) > 0 && !slices.Contains(flt.IncludeReasons, n.Reason):
 		return false
-	case slices.Contains(flt.ExcludeReasons, n.Reason):
+	case slices.Contains(f.cfg.Mute.Reasons, n.Reason):
 		return false
-	case len(flt.IncludeRepositories) > 0 && !containsFold(flt.IncludeRepositories, repo):
-		return false
-	case containsFold(flt.ExcludeRepositories, repo):
+	case containsFold(f.cfg.Mute.Repositories, repo):
 		return false
 	}
 	return true
@@ -231,14 +230,11 @@ func containsFold(list []string, s string) bool {
 	return slices.ContainsFunc(list, func(v string) bool { return strings.EqualFold(v, s) })
 }
 
-// changedEvents drops running CI when ci_skip_running is set, and events whose status is the one last
-// posted for their group when ci_only_on_change is set. A skipped running status is not recorded,
-// so a rerun that ends with the same result as before is not posted again.
+// changedEvents drops events whose status is the one last posted for their group when ci_only_on_change is set.
+// A muted status such as ci_running never gets here, so it is not recorded and a rerun that ends with the
+// same result as before is not posted again.
 func (f *Forwarder) changedEvents(events []event.Event, statuses map[string]string) []event.Event {
 	return slices.DeleteFunc(events, func(e event.Event) bool {
-		if f.cfg.CISkipRunning && e.Status == "running" {
-			return true
-		}
 		return f.cfg.CIOnlyOnChange && e.Status != "" && statuses[e.GroupKey] == e.Status
 	})
 }

@@ -21,12 +21,20 @@ func (g *Client) BuildEvent(ctx context.Context, n Notification) event.Event {
 		err = g.releaseEvent(ctx, n, &e)
 	default:
 		genericEvent(n, &e)
+		g.mute(&e, "other")
 	}
 	if err != nil {
 		log.Printf("notification %s: %v; sending without details", n.ID, err)
 		genericEvent(n, &e)
 	}
 	return e
+}
+
+// mute clears e's label, which drops it, if kind is muted.
+func (g *Client) mute(e *event.Event, kind string) {
+	if g.muted(kind) {
+		e.Label = ""
+	}
 }
 
 func genericEvent(n Notification, e *event.Event) {
@@ -50,6 +58,7 @@ func (g *Client) releaseEvent(ctx context.Context, n Notification, e *event.Even
 	}
 	e.Emoji, e.Label, e.LabelURL = ":rocket:", "Release", r.HTMLURL
 	e.Subject = event.Link{URL: r.HTMLURL, Text: r.TagName}
+	g.mute(e, "release")
 	return nil
 }
 

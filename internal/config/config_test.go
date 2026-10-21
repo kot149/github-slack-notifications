@@ -30,6 +30,14 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsUnknownMuteEvents(t *testing.T) {
+	setTokens(t)
+	_, err := Load(writeConfig(t, "mute:\n  events: [merged, merge]\n"))
+	if err == nil || !strings.Contains(err.Error(), `"merge"`) {
+		t.Errorf("want error naming the unknown event, got %v", err)
+	}
+}
+
 func TestLoadBundledConfig(t *testing.T) {
 	setTokens(t)
 	if _, err := Load("../../config.yml"); err != nil {

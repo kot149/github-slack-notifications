@@ -9,25 +9,28 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/kot149/github-slack-notifications/internal/event"
 	"go.yaml.in/yaml/v3"
 )
 
 type Config struct {
 	Filter struct {
-		IncludeReasons      []string `yaml:"include_reasons"`
-		ExcludeReasons      []string `yaml:"exclude_reasons"`
-		IncludeRepositories []string `yaml:"include_repositories"`
-		ExcludeRepositories []string `yaml:"exclude_repositories"`
-		OnlyParticipating   bool     `yaml:"only_participating"`
-		OnlyUnread          bool     `yaml:"only_unread"`
+		IncludeReasons    []string `yaml:"include_reasons"`
+		OnlyParticipating bool     `yaml:"only_participating"`
+		OnlyUnread        bool     `yaml:"only_unread"`
 	} `yaml:"filter"`
+	Mute struct {
+		Events       []string `yaml:"events"` // kinds from event.Kinds
+		Reasons      []string `yaml:"reasons"`
+		Repositories []string `yaml:"repositories"`
+	} `yaml:"mute"`
 	MarkAsRead      bool `yaml:"mark_as_read"`
 	SortOldestFirst bool `yaml:"sort_oldest_first"`
 	Rollup          bool `yaml:"rollup"`
 	CIOnlyOnChange  bool `yaml:"ci_only_on_change"`
-	CISkipRunning   bool `yaml:"ci_skip_running"`
 	// CIIgnoreChecks maps owner/repo to workflow or check run names left out of CI results.
 	CIIgnoreChecks map[string][]string `yaml:"ci_ignore_checks"`
 	StateFile      string              `yaml:"state_file"`
@@ -85,6 +88,11 @@ func ParseBytes(path string, b []byte) (*Config, error) {
 	dec.KnownFields(true)
 	if err := dec.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	for _, k := range cfg.Mute.Events {
+		if !slices.Contains(event.Kinds, k) {
+			return nil, fmt.Errorf("%s: unknown event %q in mute.events; known: %s", path, k, strings.Join(event.Kinds, ", "))
+		}
 	}
 	if !filepath.IsAbs(cfg.StateFile) {
 		cfg.StateFile = filepath.Join(filepath.Dir(path), cfg.StateFile)

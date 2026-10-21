@@ -26,7 +26,7 @@ func (g *Client) threadEvent(ctx context.Context, n Notification, e *event.Event
 	if err := g.get(ctx, n.Subject.URL, &t); err != nil {
 		return err
 	}
-	f := threadFacts{IsPR: n.Subject.Type == "PullRequest", CreatedAt: t.CreatedAt, ClosedAt: t.ClosedAt, MergedAt: t.MergedAt}
+	f := threadFacts{IsPR: n.Subject.Type == "PullRequest", CreatedAt: t.CreatedAt, ClosedAt: t.ClosedAt, MergedAt: t.MergedAt, Muted: g.muted}
 	if f.MergedAt != nil {
 		f.ClosedAt = nil
 	}

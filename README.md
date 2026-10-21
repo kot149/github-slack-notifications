@@ -6,7 +6,7 @@ A long-running program that filters your GitHub notifications and forwards them 
 
 - Polls the GitHub Notifications API every `X-Poll-Interval` (usually 60 seconds)
   - Requests carry `If-Modified-Since`, so a poll with no new notifications ends with `304` and doesn't consume rate limit
-- Filters notifications updated since the last fetch by reason and repository, then posts them to Slack
+- Filters notifications updated since the last fetch by reason, repository and event, then posts them to Slack
 - Marks forwarded notifications as read (`mark_as_read`)
 - Keeps its state (last fetch time, handled notifications) in `state_file`
 - If fetching from GitHub keeps failing for 15 minutes (e.g. the token expired), posts a warning to the same channel, and a follow-up once it recovers
@@ -22,23 +22,23 @@ owner/repo #123 PR title                    ← links to the PR
 
 The first line links to the comment or review for comment and review events, and to the PR or issue otherwise.
 
-| Kind | Shown as |
-|---|---|
-| Merge / close | `:twisted_rightwards_arrows: Merged PR` / `:no_entry_sign: Closed PR` |
-| Review | `:white_check_mark: Approved by X` / `:warning: Changes requested by X` / `:speech_balloon: New review comment by X` / `:speech_balloon: New reply to review comment by X` |
-| Comment | `:speech_balloon: New comment by X` |
-| By reason | `:eyes: Review requested` / `:point_right: Assigned to PR` / `:mega: Mentioned in PR` |
-| Edit | `:pencil2: Edited PR description by X` / `:pencil2: Edited comment by X` / `:pencil2: Edited review by X` / `:pencil2: Edited review comment by X` / `:pencil2: Renamed PR by X` |
-| PR state | `:recycle: Reopened PR by X` / `:arrow_forward: Ready for review by X` / `:construction: Converted to draft by X` / `:arrow_up: Force-pushed by X` / `:arrow_right_hook: Changed base branch by X` / `:wastebasket: Review dismissed by X` |
-| Other | `:sparkles: Opened PR` / `:arrows_counterclockwise: Updated PR` |
-| CI | Only for PRs you opened, one item per PR. Needs `only_participating: false`, since GitHub doesn't count CI as participating. `:red_circle: CI failed (2/15)` with the list of failed checks, `:hourglass_flowing_sand: CI running (8/15 done)`, `:large_green_circle: CI all green (15)` |
-| Release | `:rocket: Release` |
+| Kind | Shown as | Event (for `mute.events`) |
+|---|---|---|
+| Merge / close | `:twisted_rightwards_arrows: Merged PR` / `:no_entry_sign: Closed PR` | `merged` / `closed` |
+| Review | `:white_check_mark: Approved by X` / `:warning: Changes requested by X` / `:speech_balloon: New review comment by X` / `:speech_balloon: New reply to review comment by X` | `approved` / `changes_requested` / `review_comment` / `review_reply` |
+| Comment | `:speech_balloon: New comment by X` | `comment` |
+| By reason | `:eyes: Review requested` / `:point_right: Assigned to PR` / `:mega: Mentioned in PR` | `review_requested` / `assigned` / `mentioned` |
+| Edit | `:pencil2: Edited PR description by X` / `:pencil2: Edited comment by X` / `:pencil2: Edited review by X` / `:pencil2: Edited review comment by X` / `:pencil2: Renamed PR by X` | `edited` (all but rename) / `renamed` |
+| PR state | `:recycle: Reopened PR by X` / `:arrow_forward: Ready for review by X` / `:construction: Converted to draft by X` / `:arrow_up: Force-pushed by X` / `:arrow_right_hook: Changed base branch by X` / `:wastebasket: Review dismissed by X` | `reopened` / `ready_for_review` / `converted_to_draft` / `force_pushed` / `base_changed` / `review_dismissed` |
+| Other | `:sparkles: Opened PR` / `:arrows_counterclockwise: Updated PR` / `:bell:` for other notification types | `opened` / `updated` / `other` |
+| CI | Only for PRs you opened, one item per PR. Needs `only_participating: false`, since GitHub doesn't count CI as participating. `:red_circle: CI failed (2/15)` with the list of failed checks, `:hourglass_flowing_sand: CI running (8/15 done)`, `:large_green_circle: CI all green (15)` | `ci_failed` / `ci_running` / `ci_all_green` |
+| Release | `:rocket: Release` | `release` |
 
 - The cause of an update is determined from activity since you last read the thread (`last_read_at`)
 - Edits and PR state changes are checked only when no new comment, review, merge, close or reason explains the update. `Updated PR` remains for updates nothing explains
 - Your own comments, reviews, edits and state changes are not forwarded
-- With `ci_only_on_change: true`, CI is forwarded only when a PR's state (failed / running / all green) differs from the last one posted for it
-- With `ci_skip_running: true`, `CI running` is not forwarded. With `ci_only_on_change`, a rerun or new push that ends with the same result as the last post is not forwarded either
+- `mute.events` lists events not to forward, and `mute.reasons` and `mute.repositories` list [notification reasons](https://docs.github.com/en/rest/activity/notifications#about-notification-reasons) and `owner/repo` (case-insensitive) not to forward. A muted event is dropped like your own activity, so other activity at the same moment, such as a comment with a merge, is still forwarded
+- With `ci_only_on_change: true`, CI is forwarded only when a PR's state (failed / running / all green) differs from the last one posted for it. A muted CI state isn't counted as posted, so with `ci_running` muted, a rerun or new push that ends with the same result as the last post is not forwarded either
 - `ci_ignore_checks` maps `owner/repo` to workflow names (e.g. `Spell check`) or check run names (e.g. `spell-check`) that are left out of the CI result and counts. Names are case-insensitive
 - Updates that arrive after an already forwarded merge or close (e.g. branch deletion) are not forwarded
 

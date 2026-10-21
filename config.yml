@@ -4,17 +4,18 @@
 filter:
   # https://docs.github.com/en/rest/activity/notifications#about-notification-reasons
   include_reasons: [assign, author, comment, mention, review_requested, team_mention, state_change, ci_activity]
-  exclude_reasons: []
-  include_repositories: [] # owner/repo; empty means all
-  exclude_repositories: []
   only_participating: false # GitHub doesn't count ci_activity as participating
   only_unread: false
+
+mute: # not forwarded
+  events: [merged, ci_running] # event kinds listed in README
+  reasons: [] # notification reasons
+  repositories: [] # owner/repo
 
 mark_as_read: true
 sort_oldest_first: true
 rollup: true # one Slack message per check instead of one per notification
 ci_only_on_change: true # skip CI updates whose state (failed/running/all green) is unchanged for the PR
-ci_skip_running: true # don't forward CI while checks are still running
 ci_ignore_checks: # owner/repo: workflow or check run names left out of CI results
   owner/repo: [Spell check, Label check]
 state_file: state.json

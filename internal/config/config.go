@@ -17,15 +17,11 @@ import (
 )
 
 type Config struct {
-	Filter struct {
-		IncludeReasons    []string `yaml:"include_reasons"`
-		OnlyParticipating bool     `yaml:"only_participating"`
-		OnlyUnread        bool     `yaml:"only_unread"`
-	} `yaml:"filter"`
 	Mute struct {
 		Events       []string `yaml:"events"` // kinds from event.Kinds
 		Reasons      []string `yaml:"reasons"`
 		Repositories []string `yaml:"repositories"`
+		Read         bool     `yaml:"read"` // notifications already read on GitHub
 	} `yaml:"mute"`
 	MarkAsRead      bool `yaml:"mark_as_read"`
 	SortOldestFirst bool `yaml:"sort_oldest_first"`
@@ -82,7 +78,7 @@ func Parse(path string) (*Config, error) {
 // ParseBytes is Parse with the file content given as b.
 func ParseBytes(path string, b []byte) (*Config, error) {
 	cfg := &Config{MarkAsRead: true, SortOldestFirst: true, Rollup: true, StateFile: "state.json"}
-	cfg.Filter.OnlyUnread = true
+	cfg.Mute.Read = true
 
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)

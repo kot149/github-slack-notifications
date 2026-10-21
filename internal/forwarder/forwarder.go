@@ -73,7 +73,7 @@ func (f *Forwarder) Run(ctx context.Context) (time.Duration, error) {
 		lastModified = ""
 	}
 
-	res, err := f.gh.FetchNotifications(ctx, since, lastModified, f.cfg.Filter.OnlyParticipating, !f.cfg.Filter.OnlyUnread)
+	res, err := f.gh.FetchNotifications(ctx, since, lastModified, !f.cfg.Mute.Read)
 	f.reportFetch(ctx, err)
 	if err != nil {
 		return retryWait, err
@@ -213,11 +213,8 @@ func (f *Forwarder) CheckState() error {
 }
 
 func (f *Forwarder) keep(n github.Notification) bool {
-	flt := f.cfg.Filter
 	repo := strings.ToLower(n.Repository.FullName)
 	switch {
-	case len(flt.IncludeReasons) > 0 && !slices.Contains(flt.IncludeReasons, n.Reason):
-		return false
 	case slices.Contains(f.cfg.Mute.Reasons, n.Reason):
 		return false
 	case containsFold(f.cfg.Mute.Repositories, repo):

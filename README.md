@@ -31,13 +31,13 @@ The first line links to the comment or review for comment and review events, and
 | Edit | `:pencil2: Edited PR description by X` / `:pencil2: Edited comment by X` / `:pencil2: Edited review by X` / `:pencil2: Edited review comment by X` / `:pencil2: Renamed PR by X` | `edited` (all but rename) / `renamed` |
 | PR state | `:recycle: Reopened PR by X` / `:arrow_forward: Ready for review by X` / `:construction: Converted to draft by X` / `:arrow_up: Force-pushed by X` / `:arrow_right_hook: Changed base branch by X` / `:wastebasket: Review dismissed by X` | `reopened` / `ready_for_review` / `converted_to_draft` / `force_pushed` / `base_changed` / `review_dismissed` |
 | Other | `:sparkles: Opened PR` / `:arrows_counterclockwise: Updated PR` / `:bell:` for other notification types | `opened` / `updated` / `other` |
-| CI | Only for PRs you opened, one item per PR. Needs `only_participating: false`, since GitHub doesn't count CI as participating. `:red_circle: CI failed (2/15)` with the list of failed checks, `:hourglass_flowing_sand: CI running (8/15 done)`, `:large_green_circle: CI all green (15)` | `ci_failed` / `ci_running` / `ci_all_green` |
+| CI | Only for PRs you opened, one item per PR. `:red_circle: CI failed (2/15)` with the list of failed checks, `:hourglass_flowing_sand: CI running (8/15 done)`, `:large_green_circle: CI all green (15)` | `ci_failed` / `ci_running` / `ci_all_green` |
 | Release | `:rocket: Release` | `release` |
 
 - The cause of an update is determined from activity since you last read the thread (`last_read_at`)
 - Edits and PR state changes are checked only when no new comment, review, merge, close or reason explains the update. `Updated PR` remains for updates nothing explains
 - Your own comments, reviews, edits and state changes are not forwarded
-- `mute.events` lists events not to forward, and `mute.reasons` and `mute.repositories` list [notification reasons](https://docs.github.com/en/rest/activity/notifications#about-notification-reasons) and `owner/repo` (case-insensitive) not to forward. A muted event is dropped like your own activity, so other activity at the same moment, such as a comment with a merge, is still forwarded
+- `mute.events` lists events not to forward, and `mute.reasons` and `mute.repositories` list [notification reasons](https://docs.github.com/en/rest/activity/notifications#about-notification-reasons) and `owner/repo` (case-insensitive) not to forward. A muted event is dropped like your own activity, so other activity at the same moment, such as a comment with a merge, is still forwarded. With `mute.read: true`, notifications already read on GitHub are not forwarded
 - With `ci_only_on_change: true`, CI is forwarded only when a PR's state (failed / running / all green) differs from the last one posted for it. A muted CI state isn't counted as posted, so with `ci_running` muted, a rerun or new push that ends with the same result as the last post is not forwarded either
 - `ci_ignore_checks` maps `owner/repo` to workflow names (e.g. `Spell check`) or check run names (e.g. `spell-check`) that are left out of the CI result and counts. Names are case-insensitive
 - Updates that arrive after an already forwarded merge or close (e.g. branch deletion) are not forwarded
@@ -85,7 +85,7 @@ github-slack-notifications --config path/to/config.yml
 ```sh
 github-slack-notifications config path                     # where the config file, .env.local and state file are
 github-slack-notifications config get                      # effective config with defaults and environment applied, tokens masked
-github-slack-notifications config get filter.only_unread   # one effective value
+github-slack-notifications config get mute.read            # one effective value
 github-slack-notifications config set rollup false         # value is YAML, e.g. '[owner/a, owner/b]'
 github-slack-notifications config edit                     # open in $VISUAL or $EDITOR, then validate
 ```

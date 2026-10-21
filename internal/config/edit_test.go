@@ -12,15 +12,15 @@ func TestGet(t *testing.T) {
 		t.Fatal(err)
 	}
 	for key, want := range map[string]string{
-		"filter.only_unread": "true",
-		"slack.channel":      "C1",
-		"mute.repositories":  "- o/a\n- o/b",
+		"mute.read":         "true",
+		"slack.channel":     "C1",
+		"mute.repositories": "- o/a\n- o/b",
 	} {
 		if got, err := Get(cfg, key); err != nil || got != want {
 			t.Errorf("Get(%q) = %q, %v; want %q", key, got, err, want)
 		}
 	}
-	for _, key := range []string{"nope", "filter.nope", "slack.channel.x"} {
+	for _, key := range []string{"nope", "mute.nope", "slack.channel.x"} {
 		if _, err := Get(cfg, key); err == nil {
 			t.Errorf("Get(%q) succeeded, want error", key)
 		}
@@ -68,7 +68,7 @@ func TestSetAddsKey(t *testing.T) {
 }
 
 func TestSetRejectsInvalid(t *testing.T) {
-	for _, c := range [][2]string{{"filter.nope", "1"}, {"rollup", "[a]"}, {"rollup.x", "1"}} {
+	for _, c := range [][2]string{{"mute.nope", "1"}, {"rollup", "[a]"}, {"rollup.x", "1"}} {
 		if _, err := setBytes("config.yml", []byte("rollup: true\n"), c[0], c[1]); err == nil {
 			t.Errorf("set %s=%s succeeded, want error", c[0], c[1])
 		}

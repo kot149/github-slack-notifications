@@ -24,8 +24,8 @@ func setTokens(t *testing.T) {
 
 func TestLoadRejectsUnknownKeys(t *testing.T) {
 	setTokens(t)
-	_, err := Load(writeConfig(t, "filter:\n  include_repos: [o/r]\n"))
-	if err == nil || !strings.Contains(err.Error(), "include_repos") {
+	_, err := Load(writeConfig(t, "mute:\n  repos: [o/r]\n"))
+	if err == nil || !strings.Contains(err.Error(), "repos") {
 		t.Errorf("want error naming the unknown key, got %v", err)
 	}
 }

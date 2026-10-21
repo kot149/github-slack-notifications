@@ -23,7 +23,7 @@ const configUsage = `Usage: %s config [--config path] <command>
 
 Commands:
   path               print the config file, .env.local and state file paths
-  get [key]          print the effective value of a key, e.g. filter.only_unread,
+  get [key]          print the effective value of a key, e.g. mute.read,
                      or without a key the whole config with tokens masked
   set <key> <value>  set a key in the config file; value is YAML, e.g. true or [o/a, o/b]
   edit               open the config file in $VISUAL or $EDITOR and validate it

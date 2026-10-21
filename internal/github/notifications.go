@@ -38,10 +38,9 @@ type FetchResult struct {
 
 // FetchNotifications lists notifications updated after since, following pagination.
 // With lastModified set, an unchanged inbox returns NotModified without consuming rate limit.
-func (g *Client) FetchNotifications(ctx context.Context, since time.Time, lastModified string, participating, all bool) (*FetchResult, error) {
+func (g *Client) FetchNotifications(ctx context.Context, since time.Time, lastModified string, all bool) (*FetchResult, error) {
 	q := url.Values{}
 	q.Set("since", since.UTC().Format(time.RFC3339))
-	q.Set("participating", strconv.FormatBool(participating))
 	q.Set("all", strconv.FormatBool(all))
 	q.Set("per_page", "50")
 	next := g.BaseURL + "/notifications?" + q.Encode()

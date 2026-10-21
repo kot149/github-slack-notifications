@@ -32,7 +32,7 @@ func TestFetchNotificationsFollowsPages(t *testing.T) {
 	g := New("token")
 	g.BaseURL = srv.URL
 
-	r, err := g.FetchNotifications(context.Background(), time.Now(), "old", true, false)
+	r, err := g.FetchNotifications(context.Background(), time.Now(), "old", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestFetchNotificationsNotModified(t *testing.T) {
 	g := New("token")
 	g.BaseURL = srv.URL
 
-	r, err := g.FetchNotifications(context.Background(), time.Now(), "old", true, false)
+	r, err := g.FetchNotifications(context.Background(), time.Now(), "old", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestFetchNotificationsKeepsLastModifiedWhenOmitted(t *testing.T) {
 	g := New("token")
 	g.BaseURL = srv.URL
 
-	r, err := g.FetchNotifications(context.Background(), time.Now(), "old", true, false)
+	r, err := g.FetchNotifications(context.Background(), time.Now(), "old", false)
 	if err != nil {
 		t.Fatal(err)
 	}

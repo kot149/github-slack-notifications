@@ -1,16 +1,12 @@
 # Tokens come from GITHUB_TOKEN and SLACK_TOKEN (environment or .env.local).
 # SLACK_CHANNEL there overrides slack.channel.
 
-filter:
-  # https://docs.github.com/en/rest/activity/notifications#about-notification-reasons
-  include_reasons: [assign, author, comment, mention, review_requested, team_mention, state_change, ci_activity]
-  only_participating: false # GitHub doesn't count ci_activity as participating
-  only_unread: false
-
 mute: # not forwarded
   events: [merged, ci_running] # event kinds listed in README
-  reasons: [] # notification reasons
+  # https://docs.github.com/en/rest/activity/notifications#about-notification-reasons
+  reasons: [approval_requested, invitation, manual, member_feature_requested, security_advisory_credit, security_alert, subscribed]
   repositories: [] # owner/repo
+  read: false # notifications already read on GitHub
 
 mark_as_read: true
 sort_oldest_first: true

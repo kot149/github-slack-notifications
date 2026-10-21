@@ -11,7 +11,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// Get returns the value of a dotted key such as filter.only_unread in cfg.
+// Get returns the value of a dotted key such as mute.read in cfg.
 // Scalars are returned as is, lists and mappings as YAML.
 func Get(cfg *Config, key string) (string, error) {
 	var root yaml.Node
